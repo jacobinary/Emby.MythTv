@@ -68,16 +68,18 @@ namespace Emby.MythTv.Protocol
             Program program = null;
             string fileName;
 
+            string liveTvStorageGroup = groups.Select(x => x.GroupName).Contains("LiveTV") ? "LiveTV" : "Default";
+
             do
             {
                 program = await recorder.GetCurrentRecording75();
                 fileName = program.FileName.Split('/').Last();
-                fileSize = await recorder.QueryFileSize65(fileName, "LiveTV");
+                fileSize = await recorder.QueryFileSize65(fileName, liveTvStorageGroup);
                 await Task.Delay(500);
             }
             while (fileSize == 0);
             
-            return Path.Combine(groups.FirstOrDefault(x => x.GroupName == "LiveTV").DirNameEmby, fileName);
+            return Path.Combine(groups.SingleOrDefault(x => x.GroupName == liveTvStorageGroup).DirNameEmby, fileName);
         }
 
         public async Task StopLiveTV(int id)
