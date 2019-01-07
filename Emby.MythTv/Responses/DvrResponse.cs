@@ -273,8 +273,8 @@ namespace Emby.MythTv.Responses
                 IsHD = (item.VideoProps & VideoFlags.VID_HDTV) == VideoFlags.VID_HDTV,
                 Audio = ProgramAudio.Stereo,
                 OriginalAirDate = item.Airdate,
-                IsMovie = GeneralHelpers.ContainsWord(item.CatType, "movie", StringComparison.OrdinalIgnoreCase),
-                IsSports =
+                IsMovie = item.CatType == "movie",
+                IsSports = item.CatType == "sports" ||
                     GeneralHelpers.ContainsWord(item.Category, "sport",
                                                 StringComparison.OrdinalIgnoreCase) ||
                     GeneralHelpers.ContainsWord(item.Category, "motor sports",
@@ -283,7 +283,7 @@ namespace Emby.MythTv.Responses
                                                 StringComparison.OrdinalIgnoreCase) ||
                     GeneralHelpers.ContainsWord(item.Category, "cricket",
                                                 StringComparison.OrdinalIgnoreCase),
-                IsSeries = GeneralHelpers.ContainsWord(item.CatType, "series", StringComparison.OrdinalIgnoreCase),
+                IsSeries = item.CatType == "series" || item.CatType == "tvshow",
                 IsNews = GeneralHelpers.ContainsWord(item.Category, "news",
                                                          StringComparison.OrdinalIgnoreCase),
                 IsKids = GeneralHelpers.ContainsWord(item.Category, "animation",
