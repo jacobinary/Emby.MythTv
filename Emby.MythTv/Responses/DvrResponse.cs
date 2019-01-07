@@ -269,7 +269,6 @@ namespace Emby.MythTv.Responses
                 ProgramId = $"{item.Channel.ChanId}_{item.StartTime.Ticks}",
                 Status = RecStatusToRecordingStatus(item.Recording.Status),
                 IsRepeat = item.Repeat,
-                // EpisodeTitle = item.SubTitle,
                 IsHD = (item.VideoProps & VideoFlags.VID_HDTV) == VideoFlags.VID_HDTV,
                 Audio = ProgramAudio.Stereo,
                 OriginalAirDate = item.Airdate,
