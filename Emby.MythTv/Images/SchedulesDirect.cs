@@ -232,7 +232,7 @@ namespace Emby.MythTv
                     Url = ApiUrl + "/metadata/programs",
                     UserAgent = "Emby",
                     CancellationToken = cancellationToken,
-                    RequestContent = imageIdString,
+                    RequestContent = imageIdString.ToCharArray(),
                     LogErrorResponseBody = true,
                     // The data can be large so give it some extra time
                     TimeoutMs = 60000
