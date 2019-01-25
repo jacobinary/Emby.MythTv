@@ -137,7 +137,7 @@ namespace Emby.MythTv
             if (!string.IsNullOrWhiteSpace(requestContent))
             {
                 options.RequestContentType = "application/x-www-form-urlencoded";
-                options.RequestContent = requestContent;
+                options.RequestContent = requestContent.ToCharArray();
             }
 
             return options;
@@ -171,7 +171,7 @@ namespace Emby.MythTv
             return ret;
         }
 
-        private string FormatMythDate(DateTime inDate)
+        private string FormatMythDate(DateTimeOffset inDate)
         {
             return inDate.ToString("yyyy-MM-ddTHH:mm:ss");
         }
@@ -394,7 +394,7 @@ namespace Emby.MythTv
             }
         }
 
-        private HttpRequestOptions GetRuleStreamOptions(string ProgramId, DateTime StartDate,
+        private HttpRequestOptions GetRuleStreamOptions(string ProgramId, DateTimeOffset StartDate,
                                                         CancellationToken cancellationToken)
         {
             //split the program id back into channel + starttime if ChannelId not defined
@@ -591,7 +591,7 @@ namespace Emby.MythTv
             }               
         }
 
-        private async Task CacheGuideResponse(DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
+        private async Task CacheGuideResponse(DateTimeOffset startDate, DateTimeOffset endDate, CancellationToken cancellationToken)
         {
             using (var releaser = await _guideLock.LockAsync()) {
             
@@ -604,8 +604,8 @@ namespace Emby.MythTv
             
                 var options = GetOptions(cancellationToken,
                                          "/Guide/GetProgramGuide?StartTime={0}&EndTime={1}&Details=1",
-                                         FormatMythDate(startDateUtc),
-                                         FormatMythDate(endDateUtc));
+                                         FormatMythDate(startDate),
+                                         FormatMythDate(endDate));
                 // This can be slow so default 20 sec timeout can be too short
                 options.TimeoutMs = 60000;
 
@@ -618,11 +618,11 @@ namespace Emby.MythTv
             _logger.Info("[MythTV] End CacheGuideResponse");
         }
 
-        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTime startDateUtc, DateTime endDateUtc, CancellationToken cancellationToken)
+        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTimeOffset startDate, DateTimeOffset endDate, CancellationToken cancellationToken)
         {
             _logger.Info("[MythTV] Start GetPrograms Async, retrieve programs for: {0}", channelId);
 
-            await CacheGuideResponse(startDateUtc, endDateUtc, cancellationToken);
+            await CacheGuideResponse(startDate, endDate, cancellationToken);
             IEnumerable<ProgramInfo> programs;
             
             using (var releaser = await _guideLock.LockAsync())
