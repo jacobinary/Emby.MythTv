@@ -1,6 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿
 using Jellyfin.MythTv.Model;
-using MediaBrowser.Model.Logging;
+using Microsoft.Extensions.Logging;
+using System.Threading.Tasks;
 
 namespace Jellyfin.MythTv.Protocol
 {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Jellyfin.MythTv.Model;
-using MediaBrowser.Model.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
@@ -161,7 +161,7 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<bool> Announce75()
         {
-            var result = await SendCommand("ANN Monitor emby 0");
+            var result = await SendCommand("ANN Monitor jellyfin 0");
             return result[0] == "OK";
         }
     }

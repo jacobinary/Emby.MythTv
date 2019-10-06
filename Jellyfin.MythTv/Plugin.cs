@@ -31,7 +31,7 @@ namespace Jellyfin.MythTv
             };
         }
 
-        private Guid _id = new Guid("3a64de78-51be-495e-89de-0bb46f8c28f4");
+        private Guid _id = new Guid("9260008e-116c-4ced-b71e-6a415d5b2758");
         public override Guid Id
         {
             get { return _id; }

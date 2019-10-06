@@ -1,8 +1,8 @@
 ﻿using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.IO;
 using MediaBrowser.Model.LiveTv;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,13 +25,13 @@ namespace Jellyfin.MythTv.Responses
 
     public class DvrResponse
     {
-        private Dictionary<string, StorageGroupMap> StorageGroups;
+        private List<StorageGroupMap> groups;
 
         public DvrResponse() {}
         
         public DvrResponse(List<StorageGroupMap> groups)
         {
-            StorageGroups = groups.ToDictionary(x => x.GroupName);
+            this.groups = groups;
         }
 
         public List<string> GetRecGroupList(Stream stream, IJsonSerializer json, ILogger logger)
@@ -88,7 +88,7 @@ namespace Jellyfin.MythTv.Responses
         private RecRule GetOneRecRule(Stream stream, IJsonSerializer json, ILogger logger)
         {
             var root = json.DeserializeFromStream<RecRuleRoot>(stream);
-            logger.Debug(string.Format("[MythTV] GetOneRecRule Response: {0}",
+            logger.LogDebug(string.Format("[MythTV] GetOneRecRule Response: {0}",
                                        json.SerializeToString(root)));
             return root.RecRule;
         }
@@ -132,7 +132,7 @@ namespace Jellyfin.MythTv.Responses
             }
 
             var output = json.SerializeToString(orgRule);
-            logger.Info($"[MythTV RuleResponse: generated new timer json:\n{output}");
+            logger.LogInformation($"[MythTV RuleResponse: generated new timer json:\n{output}");
 
             return output;
         }
@@ -151,7 +151,7 @@ namespace Jellyfin.MythTv.Responses
             rule.EndOffset = info.PostPaddingSeconds / 60;
 
             var output = json.SerializeToString(rule);
-            logger.Info($"[MythTV RuleResponse: generated new timer json:\n{output}");
+            logger.LogInformation($"[MythTV RuleResponse: generated new timer json:\n{output}");
 
             return output;
         }
@@ -163,7 +163,7 @@ namespace Jellyfin.MythTv.Responses
             rule.Type = "Do not Record";
 
             var output = json.SerializeToString(rule);
-            logger.Info($"[MythTV RuleResponse: generated new timer json:\n{output}");
+            logger.LogInformation($"[MythTV RuleResponse: generated new timer json:\n{output}");
 
             return output;
         }
@@ -298,8 +298,9 @@ namespace Jellyfin.MythTv.Responses
                 recInfo.EpisodeTitle = item.Airdate.ToString("yyyy-MM-dd");
             }
 
-            string recPath = Path.Combine(StorageGroups[item.Recording.StorageGroup].DirNameEmby, item.FileName);
-            if (fileSystem.FileExists(recPath))
+            StorageGroupMap groupMap = groups.FirstOrDefault(g => g.GroupName == item.Recording.StorageGroup);
+            string recPath = Path.Combine(groupMap.DirNameOverride, item.FileName);
+            if (File.Exists(recPath))
             {
                 recInfo.Path = recPath;
             }
@@ -319,10 +320,9 @@ namespace Jellyfin.MythTv.Responses
                 var art = item.Artwork.ArtworkInfos.Where(i => i.Type.Equals("coverart"));
                 if (art.Any())
                 {
-                    var url = item.Artwork.ArtworkInfos.Where(i => i.Type.Equals("coverart")).First().URL;
                     recInfo.ImageUrl = string.Format("{0}{1}",
                                                      Plugin.Instance.Configuration.WebServiceUrl,
-                                                     url);
+                                                     art.First().URL);
                     recInfo.HasImage = true;
                 }
             }

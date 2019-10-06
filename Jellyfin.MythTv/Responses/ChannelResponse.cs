@@ -1,6 +1,6 @@
-﻿using MediaBrowser.Model.Logging;
-using MediaBrowser.Model.Serialization;
+﻿using MediaBrowser.Model.Serialization;
 using MediaBrowser.Controller.LiveTv;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -23,28 +23,24 @@ namespace Jellyfin.MythTv.Responses
                                                            bool loadChannelIcons)
         {
             var root = json.DeserializeFromStream<RootChannelInfoListObject>(stream).ChannelInfoList.ChannelInfos;
-            logger.Debug(string.Format("[MythTV] GetChannels Response: {0}",
+            logger.LogDebug(string.Format("[MythTV] GetChannels Response: {0}",
                                        json.SerializeToString(root)));
             return root.Select(x => GetChannel(x, loadChannelIcons));
         }
 
         private static ChannelInfo GetChannel(Channel channel, bool loadChannelIcons)
         {
-            ChannelInfo ci = new ChannelInfo()
-                {
-                    Name = channel.ChannelName,
-                    Number = channel.ChanNum,
-                    Id = channel.ChanId,
-                    HasImage = false
-                };
+            bool hasIconUrl = string.IsNullOrWhiteSpace(channel.IconURL);
 
-            if (!string.IsNullOrWhiteSpace(channel.IconURL) && loadChannelIcons)
+            return new ChannelInfo
             {
-                ci.HasImage = true;
-                ci.ImageUrl = string.Format("{0}/Guide/GetChannelIcon?ChanId={1}", Plugin.Instance.Configuration.WebServiceUrl, channel.ChanId);
-            }
-
-            return ci;
+                Name = channel.ChannelName,
+                Number = channel.ChanNum,
+                Id = channel.ChanId,
+                ImageUrl = hasIconUrl
+                            ? string.Format("{0}/Guide/GetChannelIcon?ChanId={1}", Plugin.Instance.Configuration.WebServiceUrl, channel.ChanId)
+                            : "https://www.mythtv.org/img/mythtv.png"
+            };
         }
 
         private class RootVideoSourceObject

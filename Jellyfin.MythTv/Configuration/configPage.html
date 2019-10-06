@@ -21,7 +21,7 @@
               <input type="checkbox" is="emby-checkbox" id="chkLoadChannelIcons" />
               <span>MythTV has channel icons</span>
             </label>
-            <div class="fieldDescription checkboxFieldDescription">Import MythTV channel icons into Emby.</div>
+            <div class="fieldDescription checkboxFieldDescription">Import MythTV channel icons into Jellyfin.</div>
           </div>
 
           <div class="checkboxContainer checkboxContainer-withDescription">
@@ -37,14 +37,14 @@
 
           <div is="emby-collapse" title="Storage Groups">
             <div class="collapseContent">
-              <p>Override MythTV storage group directories so Emby can access content.  Only required if Emby cannot access the standard MythTV paths.</p>
+              <p>Override MythTV storage group directories so Jellyfin can access content.  Only required if Jellyfin cannot access the standard MythTV paths.</p>
               <div class="paperList storageGroups"></div>
             </div>
           </div>
 
           <div is="emby-collapse" title="Recording Groups">
             <div class="collapseContent">
-              <p>Emby will only show recordings in the groups selected below:</p>
+              <p>Jellyfin will only show recordings in the groups selected below:</p>
               <div class="checkboxList recGroups"></div>
             </div>
           </div>
@@ -58,7 +58,7 @@
       <script type="text/javascript">
         
         var MythTvConfigurationPage = {
-          pluginUniqueId: "3a64de78-51be-495e-89de-0bb46f8c28f4",
+          pluginUniqueId: "9260008e-116c-4ced-b71e-6a415d5b2758",
           storageGroups: [],
           recGroups: [],
 
@@ -104,7 +104,7 @@
                 html += '<div class="listItemBody">';
                 html += "<h3 class='listItemBodyText'>" + group.GroupName + "</h3>";
                 html += "<div class='listItemBodyText secondary'>MythTV: " + group.DirName + "</div>";
-                html += "<div class='listItemBodyText secondary'>Emby: " + group.DirNameEmby + "</div>";
+                html += "<div class='listItemBodyText secondary'>Jellyfin: " + group.DirNameOverride + "</div>";
                 html += "</div>";
 
                 html += '<button type="button" is="paper-icon-button-light"'
@@ -158,7 +158,7 @@
               picker.show({
                 callback: function(path) {
                   console.log(path),
-                  MythTvConfigurationPage.storageGroups[ndx].DirNameEmby = path,
+                  MythTvConfigurationPage.storageGroups[ndx].DirNameOverride = path,
                   MythTvConfigurationPage.renderStorageGroups(page),
                   console.log(MythTvConfigurationPage.storageGroups),
                   picker.close()

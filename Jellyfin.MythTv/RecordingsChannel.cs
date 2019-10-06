@@ -7,7 +7,6 @@ using MediaBrowser.Controller.Providers;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.Channels;
 using MediaBrowser.Model.MediaInfo;
-using MediaBrowser.Model.Logging;
 using MediaBrowser.Controller.LiveTv;
 using System.Linq;
 using MediaBrowser.Common.Extensions;
@@ -15,6 +14,7 @@ using MediaBrowser.Model.Dto;
 using System.Globalization;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Model.LiveTv;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv
 {
@@ -27,7 +27,7 @@ namespace Jellyfin.MythTv
         {
             _liveTvManager = liveTvManager;
             _logger = logger;
-            _logger.Info("[MythTV] Initiating RecordingsChannel");
+            _logger.LogInformation("[MythTV] Initiating RecordingsChannel");
         }
 
         public string Name
@@ -112,20 +112,10 @@ namespace Jellyfin.MythTv
 
         public Task<DynamicImageResponse> GetChannelImage(ImageType type, CancellationToken cancellationToken)
         {
-            if (type == ImageType.Primary)
-            {
-                return Task.FromResult(new DynamicImageResponse
-                        {
-                            Path = "https://www.mythtv.org/img/mythtv.png",
-                            Protocol = MediaProtocol.Http,
-                            HasImage = true
-                        });
-            }
-
             return Task.FromResult(new DynamicImageResponse
-                    {
-                        HasImage = false
-                    });
+            {
+                HasImage = false
+            });
         }
 
         public IEnumerable<ImageType> GetSupportedChannelImages()

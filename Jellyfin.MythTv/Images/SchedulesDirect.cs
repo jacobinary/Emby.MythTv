@@ -1,9 +1,9 @@
 using Jellyfin.MythTv.Model;
 using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.LiveTv;
-using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.Net;
 using MediaBrowser.Model.Serialization;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -51,24 +51,27 @@ namespace Jellyfin.MythTv
 
         public async Task AddImages(IEnumerable<RecordingInfo> programs, CancellationToken cancellationToken)
         {
-            _logger.Debug($"[MythTV] Add images");
+            _logger.LogDebug($"[MythTV] Add images");
             var progIds = programs.Select(p => p.ShowId).ToList();
             var images = await GetImageForPrograms(progIds, cancellationToken).ConfigureAwait(false);
             
             if (images == null)
                 return;
 
-            _logger.Debug($"[MythTV] Got images");
+            _logger.LogDebug($"[MythTV] Got images");
 
             foreach (var program in programs)
             {
                 if (program.ImageUrl != null)
                     continue;
                 
-                _logger.Debug($"[MythTV] Fetching SchedulesDirect images for recording {program.ShowId}");
-                var progImages = FilterImages(images, program.ShowId.Substring(0,10));
+                _logger.LogDebug($"[MythTV] Fetching SchedulesDirect images for recording {program.ShowId}");
+                
+                if (program.ShowId.Length >= 10) {
+                    var progImages = FilterImages(images, program.ShowId.Substring(0,10));
 
-                program.ImageUrl = progImages.Image;
+                    program.ImageUrl = progImages.Image;
+                }
             }
         }            
 
@@ -90,7 +93,7 @@ namespace Jellyfin.MythTv
                 outp.Image = GetProgramImage(ApiUrl, imagesWithText, true, desiredAspect) ??
                     GetProgramImage(ApiUrl, allImages, true, desiredAspect);
 
-                _logger.Debug($"[MythTV] Found Schedules Direct Image for {programID}: {outp.Image}");
+                _logger.LogDebug($"[MythTV] Found Schedules Direct Image for {programID}: {outp.Image}");
 
                 outp.Thumb = GetProgramImage(ApiUrl, imagesWithText, true, wideAspect);
 
@@ -160,7 +163,7 @@ namespace Jellyfin.MythTv
                     url = apiUrl + "/image/" + uri;
                 }
             }
-            //_logger.Debug("URL for image is : " + url);
+            //_logger.LogDebug("URL for image is : " + url);
             return url;
         }
 
@@ -206,7 +209,7 @@ namespace Jellyfin.MythTv
         private async Task<List<ScheduleDirect.ShowImages>> GetImageForPrograms(List<string> programIds,
                                                                                 CancellationToken cancellationToken)
         {
-            _logger.Debug($"[MythTV] Fetching SchedulesDirect images");
+            _logger.LogDebug($"[MythTV] Fetching SchedulesDirect images");
             
             if (programIds.Count == 0)
             {
@@ -217,11 +220,14 @@ namespace Jellyfin.MythTv
 
             foreach (var i in programIds)
             {
-                var imageId = i.Substring(0, 10);
-
-                if (!imageIdString.Contains(imageId))
+                if (i.Length >= 10)
                 {
-                    imageIdString += "\"" + imageId + "\",";
+                    var imageId = i.Substring(0, 10);
+
+                    if (!imageIdString.Contains(imageId))
+                    {
+                        imageIdString += "\"" + imageId + "\",";
+                    }
                 }
             }
 
@@ -230,12 +236,10 @@ namespace Jellyfin.MythTv
             var httpOptions = new HttpRequestOptions()
                 {
                     Url = ApiUrl + "/metadata/programs",
-                    UserAgent = "Emby",
+                    UserAgent = "Jellyfin",
                     CancellationToken = cancellationToken,
-                    RequestContent = imageIdString.ToCharArray(),
-                    LogErrorResponseBody = true,
-                    // The data can be large so give it some extra time
-                    TimeoutMs = 60000
+                    RequestContent = imageIdString,
+                    LogErrorResponseBody = true
                 };
 
             try
@@ -248,7 +252,7 @@ namespace Jellyfin.MythTv
             }
             catch (Exception ex)
             {
-                _logger.ErrorException("Error getting image info from schedules direct", ex);
+                _logger.LogError(ex, "Error getting image info from schedules direct");
 
                 return new List<ScheduleDirect.ShowImages>();
             }

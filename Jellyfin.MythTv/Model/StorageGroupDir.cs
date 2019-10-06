@@ -16,7 +16,7 @@
     {
         public string GroupName { get; set; }
         public string DirName { get; set; }
-        public string DirNameEmby { get; set; }
+        public string DirNameOverride { get; set; }
     }
 
 }

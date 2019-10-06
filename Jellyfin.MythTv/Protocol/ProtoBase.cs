@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Jellyfin.MythTv.Model;
-using MediaBrowser.Model.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
@@ -79,7 +79,7 @@ namespace Jellyfin.MythTv.Protocol
 
             string result;
 
-            _logger.Debug($"[MythTV] Sending: {toSend}");
+            _logger.LogDebug($"[MythTV] Sending: {toSend}");
 
             try
             {
@@ -116,11 +116,11 @@ namespace Jellyfin.MythTv.Protocol
             }
             catch (Exception ex)
             {
-                _logger.Debug($"[MythTV] Sending exception: {ex.Message}");
+                _logger.LogDebug($"[MythTV] Sending exception: {ex.Message}");
                 throw new Exception(ex.Message, ex);
             }
 
-            _logger.Debug($"[MythTV] Received: {result}");
+            _logger.LogDebug($"[MythTV] Received: {result}");
 
             return result.Split(new[] { DELIMITER }, StringSplitOptions.None).ToList();
         }
@@ -194,7 +194,7 @@ namespace Jellyfin.MythTv.Protocol
                 }
             };
             
-            _logger.Debug($"[MythTV] StorageGroup: {program.HostName}/{program.Recording.StorageGroup}");
+            _logger.LogDebug($"[MythTV] StorageGroup: {program.HostName}/{program.Recording.StorageGroup}");
             return program;
         }
 

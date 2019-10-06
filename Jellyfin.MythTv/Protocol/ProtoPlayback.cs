@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using MediaBrowser.Model.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
@@ -30,7 +30,7 @@ namespace Jellyfin.MythTv.Protocol
 
         private async Task<bool> Announce75()
         {
-            var result = await SendCommand("ANN Playback emby 0");
+            var result = await SendCommand("ANN Playback jellyfin 0");
             return result[0] == "OK";
         }
 

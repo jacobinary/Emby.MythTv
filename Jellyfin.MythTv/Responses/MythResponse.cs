@@ -1,5 +1,5 @@
-﻿using MediaBrowser.Model.Logging;
-using MediaBrowser.Model.Serialization;
+﻿using MediaBrowser.Model.Serialization;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.IO;
 using Jellyfin.MythTv.Model;

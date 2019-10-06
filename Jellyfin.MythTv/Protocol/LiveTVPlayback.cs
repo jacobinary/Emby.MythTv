@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Jellyfin.MythTv.Model;
-using MediaBrowser.Model.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
@@ -74,8 +74,8 @@ namespace Jellyfin.MythTv.Protocol
             }
             while (file.Size == 0);
 
-            var map = groups.SingleOrDefault(x => x.GroupName == file.StorageGroup);
-            return file.FileName.Replace(map.DirName, map.DirNameEmby);
+            var map = groups.FirstOrDefault(x => x.GroupName == file.StorageGroup);
+            return file.FileName.Replace(map.DirName, map.DirNameOverride);
         }
 
         public async Task StopLiveTV(int id)

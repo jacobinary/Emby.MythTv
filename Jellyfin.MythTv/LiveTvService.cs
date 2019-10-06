@@ -6,10 +6,10 @@ using MediaBrowser.Common.Net;
 using MediaBrowser.Controller.LiveTv;
 using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
-using MediaBrowser.Model.Logging;
 using MediaBrowser.Model.MediaInfo;
 using MediaBrowser.Model.Serialization;
 using MediaBrowser.Model.IO;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,7 +57,7 @@ namespace Jellyfin.MythTv
 
             if (string.IsNullOrEmpty(config.Host))
             {
-                _logger.Error("[MythTV] Host must be configured.");
+                _logger.LogError("[MythTV] Host must be configured.");
                 throw new InvalidOperationException("MythTV host must be configured.");
             }
 
@@ -72,10 +72,10 @@ namespace Jellyfin.MythTv
             if (!storageGroupMaps.Any())
             {
                 storageGroupMaps = storageGroups.Select(x => new StorageGroupMap {
-                        GroupName = x.GroupName,
-                        DirName = x.DirName,
-                        DirNameEmby = x.DirName
-                    }).ToList();
+                    GroupName = x.GroupName,
+                    DirName = x.DirName,
+                    DirNameOverride = x.DirName
+                }).ToList();
             }
             else
             {
@@ -86,17 +86,17 @@ namespace Jellyfin.MythTv
                 List<StorageGroupDir> newGroups = storageGroups;
                 newGroups.RemoveAll(g => storageGroupMaps.Select(x => x.GroupName).Contains(g.GroupName));
                 storageGroupMaps.AddRange(newGroups.Select(x => new StorageGroupMap {
-                            GroupName = x.GroupName,
-                            DirName = x.DirName,
-                            DirNameEmby = x.DirName
-                        }));
+                    GroupName = x.GroupName,
+                    DirName = x.DirName,
+                    DirNameOverride = x.DirName
+                }));
             }
 
             // make sure there are no trailing path separators
             foreach (var group in storageGroupMaps)
             {
                 group.DirName = group.DirName.TrimEnd('/');
-                group.DirNameEmby = group.DirNameEmby.TrimEnd('/');
+                group.DirNameOverride = group.DirNameOverride.TrimEnd('/');
             }
             
             Plugin.Instance.Configuration.StorageGroupMaps = storageGroupMaps;
@@ -137,7 +137,7 @@ namespace Jellyfin.MythTv
             if (!string.IsNullOrWhiteSpace(requestContent))
             {
                 options.RequestContentType = "application/x-www-form-urlencoded";
-                options.RequestContent = requestContent.ToCharArray();
+                options.RequestContent = requestContent;
             }
 
             return options;
@@ -171,7 +171,7 @@ namespace Jellyfin.MythTv
             return ret;
         }
 
-        private string FormatMythDate(DateTimeOffset inDate)
+        private string FormatMythDate(DateTime inDate)
         {
             return inDate.ToString("yyyy-MM-ddTHH:mm:ss");
         }
@@ -183,7 +183,7 @@ namespace Jellyfin.MythTv
         /// <returns>Task{IEnumerable{ChannelInfo}}.</returns>
         public async Task<IEnumerable<ChannelInfo>> GetChannelsAsync(CancellationToken cancellationToken)
         {
-            _logger.Info("[MythTV] Start GetChannels Async, retrieve all channels");
+            _logger.LogInformation("[MythTV] Start GetChannels Async, retrieve all channels");
 
             var sources = await GetVideoSourceList(cancellationToken);
             var channels = new List<ChannelInfo>();
@@ -215,12 +215,12 @@ namespace Jellyfin.MythTv
         public async Task<IEnumerable<RecordingInfo>> GetRecordingsAsync(CancellationToken cancellationToken)
         {
 
-            _logger.Info("[MythTV] Start GetRecordings Async, retrieve all 'Pending', 'Inprogress' and 'Completed' recordings ");
+            _logger.LogInformation("[MythTV] Start GetRecordings Async, retrieve all 'Pending', 'Inprogress' and 'Completed' recordings ");
             await EnsureSetup();
 
             IEnumerable<RecordingInfo> outp;
 
-            using (var stream = await _httpClient.Get(GetOptions(cancellationToken, "/Dvr/GetRecordedList")).ConfigureAwait(false))
+            using (var stream = await _httpClient.Get(GetOptions(cancellationToken, "/Dvr/GetRecordedList?RecGroup=Default&Count=10&Descending=true")).ConfigureAwait(false))
             {
                 outp = new DvrResponse(Plugin.Instance.Configuration.StorageGroupMaps).GetRecordings(stream, _jsonSerializer, _logger, _fileSystem).ToList();
             }
@@ -243,7 +243,7 @@ namespace Jellyfin.MythTv
         public async Task DeleteRecordingAsync(string recordingId, CancellationToken cancellationToken)
         {
 
-            _logger.Info(string.Format("[MythTV] Start Delete Recording Async for recordingId: {0}", recordingId));
+            _logger.LogInformation(string.Format("[MythTV] Start Delete Recording Async for recordingId: {0}", recordingId));
             await EnsureSetup();
 
             var options = PostOptions(cancellationToken,
@@ -273,7 +273,7 @@ namespace Jellyfin.MythTv
         public async Task CancelTimerAsync(string timerId, CancellationToken cancellationToken)
         {
 
-            _logger.Info($"[MythTV] Start Cancel Recording Async for recordingId: {timerId}");
+            _logger.LogInformation($"[MythTV] Start Cancel Recording Async for recordingId: {timerId}");
 
             // A timer coming from a series timer will have a ficticious id
             // of the form xxx_yyyy
@@ -298,7 +298,7 @@ namespace Jellyfin.MythTv
 
         private async Task<IEnumerable<string>> GetVideoSourceList(CancellationToken cancellationToken)
         {
-            _logger.Info("[MythTV] Start GetVideoSourceList");
+            _logger.LogInformation("[MythTV] Start GetVideoSourceList");
 
             var options = GetOptions(cancellationToken,
                                      "/Channel/GetVideoSourceList");
@@ -319,7 +319,7 @@ namespace Jellyfin.MythTv
         {
 
             var timerJson = _jsonSerializer.SerializeToString(info);
-            _logger.Info($"[MythTV] Start CreateTimer Async for TimerInfo\n{timerJson}");
+            _logger.LogInformation($"[MythTV] Start CreateTimer Async for TimerInfo\n{timerJson}");
 
             await EnsureSetup();
 
@@ -336,7 +336,7 @@ namespace Jellyfin.MythTv
                 }
                 catch (ExistingTimerException existing)
                 {
-                    _logger.Info($"[MythTV] found existing rule {existing.id}");
+                    _logger.LogInformation($"[MythTV] found existing rule {existing.id}");
                     await CancelTimerAsync(existing.id, cancellationToken);
                 }
             }          
@@ -347,7 +347,7 @@ namespace Jellyfin.MythTv
                                                        CancellationToken cancellationToken)
         {
 
-            _logger.Info($"[MythTV] Start CreateDoNotRecordTimer Async for Channel {ChannelId} at {StartDate}");
+            _logger.LogInformation($"[MythTV] Start CreateDoNotRecordTimer Async for Channel {ChannelId} at {StartDate}");
 
             await EnsureSetup();
 
@@ -369,7 +369,7 @@ namespace Jellyfin.MythTv
         /// <returns></returns>
         public async Task<IEnumerable<TimerInfo>> GetTimersAsync(CancellationToken cancellationToken)
         {
-            _logger.Info("[MythTV] Start GetTimer Async, retrieve the 'Pending' recordings");
+            _logger.LogInformation("[MythTV] Start GetTimer Async, retrieve the 'Pending' recordings");
             await EnsureSetup();
 
             using (var stream = await _httpClient.Get(GetOptions(cancellationToken, "/Dvr/GetUpcomingList?ShowAll=false")).ConfigureAwait(false))
@@ -385,7 +385,7 @@ namespace Jellyfin.MythTv
         /// <returns></returns>
         public async Task<IEnumerable<SeriesTimerInfo>> GetSeriesTimersAsync(CancellationToken cancellationToken)
         {
-            _logger.Info("[MythTV] Start GetSeriesTimer Async, retrieve the recurring recordings");
+            _logger.LogInformation("[MythTV] Start GetSeriesTimer Async, retrieve the recurring recordings");
             await EnsureSetup();
 
             using (var stream = await _httpClient.Get(GetOptions(cancellationToken, "/Dvr/GetRecordScheduleList")).ConfigureAwait(false))
@@ -394,7 +394,7 @@ namespace Jellyfin.MythTv
             }
         }
 
-        private HttpRequestOptions GetRuleStreamOptions(string ProgramId, DateTimeOffset StartDate,
+        private HttpRequestOptions GetRuleStreamOptions(string ProgramId, DateTime StartDate,
                                                         CancellationToken cancellationToken)
         {
             //split the program id back into channel + starttime if ChannelId not defined
@@ -426,7 +426,7 @@ namespace Jellyfin.MythTv
         {
 
             var seriesTimerJson = _jsonSerializer.SerializeToString(info);
-            _logger.Info($"[MythTV] Start CreateSeriesTimer Async for SeriesTimerInfo\n{seriesTimerJson}");
+            _logger.LogInformation($"[MythTV] Start CreateSeriesTimer Async for SeriesTimerInfo\n{seriesTimerJson}");
 
             await EnsureSetup();
 
@@ -448,7 +448,7 @@ namespace Jellyfin.MythTv
         public async Task UpdateSeriesTimerAsync(SeriesTimerInfo info, CancellationToken cancellationToken)
         {
             var seriesTimerJson = _jsonSerializer.SerializeToString(info);
-            _logger.Info($"[MythTV] Start UpdateSeriesTimer Async for SeriesTimerInfo\n{seriesTimerJson}");
+            _logger.LogInformation($"[MythTV] Start UpdateSeriesTimer Async for SeriesTimerInfo\n{seriesTimerJson}");
 
             await EnsureSetup();
 
@@ -471,7 +471,7 @@ namespace Jellyfin.MythTv
         public async Task UpdateTimerAsync(TimerInfo info, CancellationToken cancellationToken)
         {
             var timerJson = _jsonSerializer.SerializeToString(info);
-            _logger.Info($"[MythTV] Start UpdateTimer Async for TimerInfo\n{timerJson}");
+            _logger.LogInformation($"[MythTV] Start UpdateTimer Async for TimerInfo\n{timerJson}");
 
             await EnsureSetup();
 
@@ -495,7 +495,7 @@ namespace Jellyfin.MythTv
         public async Task CancelSeriesTimerAsync(string timerId, CancellationToken cancellationToken)
         {
 
-            _logger.Info(string.Format("[MythTV] Start Cancel SeriesRecording Async for recordingId: {0}", timerId));
+            _logger.LogInformation(string.Format("[MythTV] Start Cancel SeriesRecording Async for recordingId: {0}", timerId));
             await EnsureSetup();
 
             var options = PostOptions(cancellationToken,
@@ -514,16 +514,16 @@ namespace Jellyfin.MythTv
         {
             if (_liveTV == null)
             {
-                _logger.Info("[MythTV] Initiating MythProtocol connection");
+                _logger.LogInformation("[MythTV] Initiating MythProtocol connection");
                 _liveTV = new LiveTVPlayback(Plugin.Instance.Configuration.Host, 6543, _logger);
                 await _liveTV.Open();
-                _logger.Info($"[MythTV] MythProtocol connection opened, protocol version {_liveTV.ProtoVersion}");
+                _logger.LogInformation($"[MythTV] MythProtocol connection opened, protocol version {_liveTV.ProtoVersion}");
             }
         }
 
         public async Task<MediaSourceInfo> GetChannelStream(string channelId, string mediaSourceId, CancellationToken cancellationToken)
         {
-            _logger.Info($"[MythTV] Start ChannelStream for {channelId}");
+            _logger.LogInformation($"[MythTV] Start ChannelStream for {channelId}");
 
             // await GetChannels if channelNums isn't populated
             if (channelNums == null)
@@ -538,7 +538,7 @@ namespace Jellyfin.MythTv
             
             var filepath = await _liveTV.GetCurrentRecording(id, Plugin.Instance.Configuration.StorageGroupMaps);
 
-            _logger.Info($"[MythTV] ChannelStream at {filepath}");
+            _logger.LogInformation($"[MythTV] ChannelStream at {filepath}");
 
             var output = new MediaSourceInfo
             {
@@ -575,7 +575,7 @@ namespace Jellyfin.MythTv
 
         public async Task CloseLiveStream(string id, CancellationToken cancellationToken)
         {
-            _logger.Info($"[MythTV] Closing {id}");
+            _logger.LogInformation($"[MythTV] Closing {id}");
             await _liveTV.StopLiveTV(int.Parse(id));
             _liveTV.Dispose();
             _liveTV = null;
@@ -583,7 +583,7 @@ namespace Jellyfin.MythTv
 
         public async Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo program = null)
         {
-            _logger.Info("[MythTV] Start GetNewTimerDefault Async");
+            _logger.LogInformation("[MythTV] Start GetNewTimerDefault Async");
             await EnsureSetup();
             using (var stream = await _httpClient.Get(GetOptions(cancellationToken, "/Dvr/GetRecordSchedule?Template=Default")).ConfigureAwait(false))
             {
@@ -591,14 +591,14 @@ namespace Jellyfin.MythTv
             }               
         }
 
-        private async Task CacheGuideResponse(DateTimeOffset startDate, DateTimeOffset endDate, CancellationToken cancellationToken)
+        private async Task CacheGuideResponse(DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
         {
             using (var releaser = await _guideLock.LockAsync()) {
             
                 if (_guide != null && (DateTime.Now - _guide.FetchTime).Hours < 1)
                     return;
 
-                _logger.Info("[MythTV] Start CacheGuideResponse");
+                _logger.LogInformation("[MythTV] Start CacheGuideResponse");
 
                 await EnsureSetup();
             
@@ -606,8 +606,6 @@ namespace Jellyfin.MythTv
                                          "/Guide/GetProgramGuide?StartTime={0}&EndTime={1}&Details=1",
                                          FormatMythDate(startDate),
                                          FormatMythDate(endDate));
-                // This can be slow so default 20 sec timeout can be too short
-                options.TimeoutMs = 60000;
 
                 using (var stream = await _httpClient.Get(options).ConfigureAwait(false))
                 {
@@ -615,12 +613,12 @@ namespace Jellyfin.MythTv
                 }
             }
 
-            _logger.Info("[MythTV] End CacheGuideResponse");
+            _logger.LogInformation("[MythTV] End CacheGuideResponse");
         }
 
-        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTimeOffset startDate, DateTimeOffset endDate, CancellationToken cancellationToken)
+        public async Task<IEnumerable<ProgramInfo>> GetProgramsAsync(string channelId, DateTime startDate, DateTime endDate, CancellationToken cancellationToken)
         {
-            _logger.Info("[MythTV] Start GetPrograms Async, retrieve programs for: {0}", channelId);
+            _logger.LogInformation("[MythTV] Start GetPrograms Async, retrieve programs for: {0}", channelId);
 
             await CacheGuideResponse(startDate, endDate, cancellationToken);
             IEnumerable<ProgramInfo> programs;
