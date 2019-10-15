@@ -8,6 +8,7 @@ using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
 using MediaBrowser.Model.Serialization;
+using MediaBrowser.Model.System;
 using MediaBrowser.Model.IO;
 using Microsoft.Extensions.Logging;
 using System;
@@ -215,6 +216,7 @@ namespace Jellyfin.MythTv
         public async Task<IEnumerable<RecordingInfo>> GetRecordingsAsync(CancellationToken cancellationToken)
         {
 
+            _logger.LogInformation($"[FFmpeg Location] {FFmpegLocation.System}");
             _logger.LogInformation("[MythTV] Start GetRecordings Async, retrieve all 'Pending', 'Inprogress' and 'Completed' recordings ");
             await EnsureSetup();
 
