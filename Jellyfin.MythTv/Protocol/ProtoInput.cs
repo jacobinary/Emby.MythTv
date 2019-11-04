@@ -2,15 +2,15 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Jellyfin.MythTv.Model;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
-    class ProtoMonitor : ProtoBase
+    class ProtoInput : ProtoBase
     {
 
-        public ProtoMonitor(string server, int port, ILogger logger) : base(server, port, AnnounceMode.Monitor, logger)
+        public ProtoInput()
         {
+            AnnounceMode = AnnounceModeType.Monitor;
         }
 
         public async Task<List<Input>> GetFreeInputs()
@@ -23,7 +23,7 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<List<Input>> GetFreeInputs87()
         {
-            var input = await SendCommand("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
 
             if (input.Count == 0)
@@ -53,7 +53,7 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<List<Input>> GetFreeInputs89()
         {
-            var input = await SendCommand("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
 
             if (input.Count == 0)
@@ -83,7 +83,7 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<List<Input>> GetFreeInputs90()
         {
-            var input = await SendCommand("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
 
             if (input.Count == 0)
@@ -113,7 +113,7 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<List<Input>> GetFreeInputs91()
         {
-            var input = await SendCommand("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
 
             if (input.Count == 0)

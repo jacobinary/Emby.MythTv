@@ -13,7 +13,7 @@ namespace Jellyfin.MythTv.Protocol
     {
         protected static readonly string DELIMITER = "[]:[]";
 
-        public enum AnnounceMode
+        public enum AnnounceModeType
         {
             FileTransfer,
             Playback,
@@ -22,22 +22,21 @@ namespace Jellyfin.MythTv.Protocol
             SlaveBackend
         }
 
-        public enum ERROR_t
-        {
-            ERROR_NO_ERROR = 0,
-            ERROR_SERVER_UNREACHABLE = 1,
-            ERROR_SOCKET_ERROR = 2,
-            ERROR_UNKNOWN_VERSION = 3,
+        public enum EventModeType {
+            None = 0,
+            All = 1,
+            ExcludeSystem = 2,
+            SystemOnly = 3
         }
 
-        public virtual bool IsOpen { get; private set; }
-        public uint ProtoVersion { get; private set; }
-        public string Server { get; private set; }
-        public int Port { get; private set; }
-        public bool HasHanging { get; private set; }
-        public AnnounceMode Mode { get; private set; }
+        public string Server { get; set; }
+        public int Port { get; set; }
+        public AnnounceModeType AnnounceMode { get; protected set; } = AnnounceModeType.Monitor;
+        public EventModeType EventMode { get; protected set; } = EventModeType.None;
 
-        protected ILogger _logger;
+        public ILogger Logger { get; set; }
+        public bool IsOpen { get; protected set; } = false;
+        public uint ProtoVersion { get; private set; }
         
         private TcpClient socket;
 
@@ -49,13 +48,8 @@ namespace Jellyfin.MythTv.Protocol
             {88, "XmasGift"}
         };
 
-        public ProtoBase(string server, int port, AnnounceMode mode, ILogger logger)
-        {
-            Server = server;
-            Port = port;
-            Mode = mode;
-            _logger = logger;
-            IsOpen = false;
+        public ProtoBase() {
+
         }
 
         ~ProtoBase()
@@ -65,17 +59,17 @@ namespace Jellyfin.MythTv.Protocol
 
         public virtual async Task<bool> Open()
         {
-            bool ok = false;
             if (!await OpenConnection())
             {
                 return false;
             }
 
-            if (ProtoVersion >= 75)
-                ok = await Announce75();
+            if (ProtoVersion >= 75 && await Announce75())
+            {
+                Logger.LogInformation($"[MythTV] MythProtocol connection opened, protocol version {ProtoVersion}");
 
-            if (ok)
                 return true;
+            }
 
             await Close();
             return false;
@@ -103,68 +97,73 @@ namespace Jellyfin.MythTv.Protocol
             return string.Format(messageFormat, message.Length, message);
         }
 
-        private async Task<List<string>> sendToServerAsync(string toSend)
-        {
+        protected async Task WriteAsync(string payload) {
+            var stream = socket.GetStream();
+            var sendBytes = Encoding.ASCII.GetBytes(payload);
 
-            string result;
+            await stream.WriteAsync(sendBytes, 0, sendBytes.Length);
+        }
 
-            _logger.LogDebug($"[MythTV] Sending: {toSend}");
+        protected async Task<string> ReadAsync(int length) {
+            var stream = socket.GetStream();
+            var result = string.Empty;
+            var readBytes = new byte[length];
+            var totalBytesRead = 0;
 
-            try
+            while (totalBytesRead < length)
             {
-                var stream = socket.GetStream();
+                var bytesRead = await stream.ReadAsync(readBytes, 0, (length - totalBytesRead));
+                totalBytesRead += bytesRead;
 
-                var sendBytes = Encoding.ASCII.GetBytes(toSend);
+                result += Encoding.ASCII.GetString(readBytes, 0, bytesRead);
+            }
 
-                await stream.WriteAsync(sendBytes, 0, sendBytes.Length);
+            return result;
+        }
+        
+        protected async Task<List<string>> ListenAsync() {
+            try {
+                var length = int.Parse(await ReadAsync(8));
+                var response = await ReadAsync(length);
 
-                var buffer = new byte[8];
-                var bytesRead = await stream.ReadAsync(buffer, 0, 8);
+                Logger.LogDebug($"[MythTV] Received: {response}");
 
-                if (bytesRead == 0)
-                {
-                    return new[] { "" }.ToList();
-                }
-
-                var length = Encoding.ASCII.GetString(buffer, 0, 8);
-
-                var bytesAvailable = int.Parse(length);
-                var readBytes = new byte[bytesAvailable];
-
-                var totalBytesRead = 0;
-                result = string.Empty;
-
-                while (totalBytesRead < bytesAvailable)
-                {
-                    bytesRead = await stream.ReadAsync(readBytes, 0, bytesAvailable);
-                    totalBytesRead += bytesRead;
-
-                    result += Encoding.ASCII.GetString(readBytes, 0, bytesRead);
-                }
-
+                return response.Split(new[] { DELIMITER }, StringSplitOptions.None).ToList();
             }
             catch (Exception ex)
             {
-                _logger.LogDebug($"[MythTV] Sending exception: {ex.Message}");
+                Logger.LogDebug($"[MythTV] Listening exception: {ex.Message}");
                 throw new Exception(ex.Message, ex);
             }
-
-            _logger.LogDebug($"[MythTV] Received: {result}");
-
-            return result.Split(new[] { DELIMITER }, StringSplitOptions.None).ToList();
         }
 
-        protected async Task<List<string>> SendCommand(string command)
+        protected async Task<List<string>> SendCommandAsync(string command)
         {
-            return await sendToServerAsync(FormatMessage(command));
+            command = FormatMessage(command);
+
+            Logger.LogDebug($"[MythTV] Sending: {command}");
+
+            try
+            {
+                await WriteAsync(command);
+
+                return await ListenAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug($"[MythTV] Sending exception: {ex.Message}");
+                throw new Exception(ex.Message, ex);
+            }
         }
 
         public async Task<bool> OpenConnection()
         {
+            Logger.LogInformation("[MythTV] Initiating MythProtocol connection");
+
             socket = new TcpClient();
             await socket.ConnectAsync(Server, Port);
             uint max_version = protomap.Keys.Max();
-            var result = await SendCommand($"MYTH_PROTO_VERSION {max_version} {protomap[max_version]}");
+            var result = await SendCommandAsync($"MYTH_PROTO_VERSION {max_version} {protomap[max_version]}");
             IsOpen = result[0] == "ACCEPT";
             if(IsOpen)
             {
@@ -182,7 +181,7 @@ namespace Jellyfin.MythTv.Protocol
 
             socket = new TcpClient();
             await socket.ConnectAsync(Server, Port);
-            result = await SendCommand($"MYTH_PROTO_VERSION {server_version} {protomap[server_version]}");
+            result = await SendCommandAsync($"MYTH_PROTO_VERSION {server_version} {protomap[server_version]}");
             IsOpen = result[0] == "ACCEPT";
             if(IsOpen)
             {
@@ -194,20 +193,18 @@ namespace Jellyfin.MythTv.Protocol
 
         public virtual async Task Close()
         {
-            if (socket.Connected)
+            if (socket.Connected && IsOpen)
             {
-                if (IsOpen)
-                {
-                    await SendCommand("DONE");
-                }
+                await SendCommandAsync("DONE");
             }
             IsOpen = false;
         }
 
         public virtual async Task<bool> Announce75()
         {
-            var mode = Enum.GetName(typeof(AnnounceMode), Mode);
-            var result = await SendCommand($"ANN {mode} jellyfin 0");
+            var announceMode = Enum.GetName(typeof(AnnounceModeType), AnnounceMode);
+            var eventMode = EventMode;
+            var result = await SendCommandAsync($"ANN {announceMode} jellyfin {eventMode}");
             return result[0] == "OK";
         }
 
@@ -230,7 +227,7 @@ namespace Jellyfin.MythTv.Protocol
                 }
             };
             
-            _logger.LogDebug($"[MythTV] StorageGroup: {program.HostName}/{program.Recording.StorageGroup}");
+            Logger.LogDebug($"[MythTV] StorageGroup: {program.HostName}/{program.Recording.StorageGroup}");
             return program;
         }
 

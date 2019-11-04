@@ -8,7 +8,6 @@ using MediaBrowser.Model.Dto;
 using MediaBrowser.Model.Entities;
 using MediaBrowser.Model.MediaInfo;
 using MediaBrowser.Model.Serialization;
-using MediaBrowser.Model.System;
 using MediaBrowser.Model.IO;
 using Microsoft.Extensions.Logging;
 using System;
@@ -26,7 +25,7 @@ namespace Jellyfin.MythTv
         private readonly IJsonSerializer _jsonSerializer;
         private readonly ILogger _logger;
         private readonly IFileSystem _fileSystem;
-        private LiveTVPlayback _liveTV;
+        private ProtoManager _manager;
         private IImageGrabber _imageGrabber;
 
         public DateTime LastRecordingChange = DateTime.MinValue;
@@ -216,7 +215,6 @@ namespace Jellyfin.MythTv
         public async Task<IEnumerable<RecordingInfo>> GetRecordingsAsync(CancellationToken cancellationToken)
         {
 
-            _logger.LogInformation($"[FFmpeg Location] {FFmpegLocation.System}");
             _logger.LogInformation("[MythTV] Start GetRecordings Async, retrieve all 'Pending', 'Inprogress' and 'Completed' recordings ");
             await EnsureSetup();
 
@@ -512,14 +510,18 @@ namespace Jellyfin.MythTv
             throw new NotImplementedException();
         }
 
-        private async Task ConnectLiveTv()
+        private async Task EnsureConnection()
         {
-            if (_liveTV == null)
+            _logger.LogInformation("[MythTV] Connecting...");
+            
+            if (_manager == null)
             {
-                _logger.LogInformation("[MythTV] Initiating MythProtocol connection");
-                _liveTV = new LiveTVPlayback(Plugin.Instance.Configuration.Host, 6543, _logger);
-                await _liveTV.Open();
-                _logger.LogInformation($"[MythTV] MythProtocol connection opened, protocol version {_liveTV.ProtoVersion}");
+                _manager = new ProtoManager {
+                    Server = Plugin.Instance.Configuration.Host,
+                    Port = 6543
+                };
+
+                await _manager.Open();
             }
         }
 
@@ -532,13 +534,13 @@ namespace Jellyfin.MythTv
                 await GetChannelsAsync(cancellationToken);
 
             // make sure livetv connected
-            await ConnectLiveTv();
+            await EnsureConnection();
             
-            var id = await _liveTV.SpawnLiveTV(channelNums[channelId]);
+            var id = await _manager.SpawnLiveTV(channelNums[channelId]);
             if (id == 0)
                 return new MediaSourceInfo();
             
-            var filepath = await _liveTV.GetCurrentRecording(id, Plugin.Instance.Configuration.StorageGroupMaps);
+            var filepath = await _manager.GetCurrentRecording(id, Plugin.Instance.Configuration.StorageGroupMaps);
 
             _logger.LogInformation($"[MythTV] ChannelStream at {filepath}");
 
@@ -578,9 +580,7 @@ namespace Jellyfin.MythTv
         public async Task CloseLiveStream(string id, CancellationToken cancellationToken)
         {
             _logger.LogInformation($"[MythTV] Closing {id}");
-            await _liveTV.StopLiveTV(int.Parse(id));
-            _liveTV.Dispose();
-            _liveTV = null;
+            await _manager.StopLiveTV(int.Parse(id));
         }
 
         public async Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo program = null)
@@ -642,8 +642,6 @@ namespace Jellyfin.MythTv
         {
             throw new NotImplementedException();
         }
-
-        public event EventHandler DataSourceChanged;
 
         public string HomePageUrl
         {

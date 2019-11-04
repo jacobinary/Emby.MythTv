@@ -5,17 +5,15 @@ using System.Threading.Tasks;
 
 namespace Jellyfin.MythTv.Protocol
 {
-    class ProtoRecorder : ProtoPlayback
+    class ProtoRecorder : ProtoBase
     {
-        public int Num { get; set; }
-        public bool IsPlaying { get; private set; }
-        public bool IsLiveRecording { get; private set; }
+        public int Id { get; set; }
+        public bool IsPlaying { get; private set; } = false;
+        public bool IsLiveRecording { get; private set; } = false;
 
-        public ProtoRecorder(int num, string server, int port, ILogger logger) : base(server, port, logger)
+        public ProtoRecorder()
         {
-            Num = num;
-            IsPlaying = false;
-            IsLiveRecording = false;
+            AnnounceMode = AnnounceModeType.Playback;
 
             Task.WaitAll(Open());
         }
@@ -45,11 +43,11 @@ namespace Jellyfin.MythTv.Protocol
             if (!IsOpen)
                 return false;
 
-            var cmd = $"QUERY_RECORDER {Num}{DELIMITER}SPAWN_LIVETV{DELIMITER}{chainid}{DELIMITER}0{DELIMITER}{channum}";
+            var cmd = $"QUERY_RECORDER {Id}{DELIMITER}SPAWN_LIVETV{DELIMITER}{chainid}{DELIMITER}0{DELIMITER}{channum}";
 
             IsPlaying = true;
 
-            if ((await SendCommand(cmd))[0] != "OK")
+            if ((await SendCommandAsync(cmd))[0] != "OK")
                 IsPlaying = false;
 
             return IsPlaying;
@@ -57,8 +55,8 @@ namespace Jellyfin.MythTv.Protocol
 
         private async Task<bool> StopLiveTV75()
         {
-            var cmd = $"QUERY_RECORDER {Num}{DELIMITER}STOP_LIVETV";
-            var result = await SendCommand(cmd);
+            var cmd = $"QUERY_RECORDER {Id}{DELIMITER}STOP_LIVETV";
+            var result = await SendCommandAsync(cmd);
             if (result[0] != "OK")
                 return false;
 
@@ -73,8 +71,8 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<Program> GetCurrentRecording75()
         {
-            var cmd = $"QUERY_RECORDER {Num}{DELIMITER}GET_CURRENT_RECORDING";
-            var result = await SendCommand(cmd);
+            var cmd = $"QUERY_RECORDER {Id}{DELIMITER}GET_CURRENT_RECORDING";
+            var result = await SendCommandAsync(cmd);
 
             return RcvProgramInfo86(result);
         }
@@ -82,7 +80,7 @@ namespace Jellyfin.MythTv.Protocol
         public async Task<StorageGroupFile> QuerySGFile75(string hostname, string storageGroup, string filename)
         {
             var cmd = $"QUERY_SG_FILEQUERY{DELIMITER}{hostname}{DELIMITER}{storageGroup}{DELIMITER}{filename}";
-            var result = await SendCommand(cmd);
+            var result = await SendCommandAsync(cmd);
 
             return new StorageGroupFile {
                 FileName = result[0],

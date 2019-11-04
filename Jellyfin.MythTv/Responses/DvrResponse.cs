@@ -171,14 +171,9 @@ namespace Jellyfin.MythTv.Responses
         public List<TimerInfo> GetUpcomingList(Stream stream, IJsonSerializer json, ILogger logger)
         {
 
-            var root = json.DeserializeFromStream<ProgramListRoot>(stream);
-            return root.ProgramList.Programs.Select(i => ProgramToTimerInfo(i)).ToList();
+            var recordings = json.DeserializeFromStream<RecordingList>(stream);
+            return recordings.ProgramList.Programs.Select(i => ProgramToTimerInfo(i)).ToList();
 
-        }
-
-        private class ProgramListRoot
-        {
-            public ProgramList ProgramList { get; set; }
         }
 
         private TimerInfo ProgramToTimerInfo(Program item)
@@ -230,8 +225,8 @@ namespace Jellyfin.MythTv.Responses
         {
 
             var included = Plugin.Instance.Configuration.RecGroups.Where(x => x.Enabled == true).Select(x => x.Name).ToList();
-            var root = json.DeserializeFromStream<ProgramListRoot>(stream);
-            return root.ProgramList.Programs
+            var recordings = json.DeserializeFromStream<RecordingList>(stream);
+            return recordings.ProgramList.Programs
                 .Where(i => included.Contains(i.Recording.RecGroup))
                 .Where(i => i.FileSize > 0)
                 .Select(i => ProgramToRecordingInfo(i, fileSystem));
@@ -306,10 +301,7 @@ namespace Jellyfin.MythTv.Responses
             }
             else
             {
-                recInfo.Url = string.Format("{0}/Content/GetFile?StorageGroup={1}&FileName={2}",
-                                            Plugin.Instance.Configuration.WebServiceUrl,
-                                            item.Recording.StorageGroup,
-                                            item.FileName);
+                recInfo.Url = $"{Plugin.Instance.Configuration.WebServiceUrl}/Content/GetFile?StorageGroup={item.Recording.StorageGroup}&FileName={item.FileName}";
             }
 
             recInfo.Genres.AddRange(item.Category.Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries));
@@ -320,11 +312,13 @@ namespace Jellyfin.MythTv.Responses
                 var art = item.Artwork.ArtworkInfos.Where(i => i.Type.Equals("coverart"));
                 if (art.Any())
                 {
-                    recInfo.ImageUrl = string.Format("{0}{1}",
-                                                     Plugin.Instance.Configuration.WebServiceUrl,
-                                                     art.First().URL);
+                    recInfo.ImageUrl = $"{Plugin.Instance.Configuration.WebServiceUrl}{art.First().URL}";
                     recInfo.HasImage = true;
                 }
+            } else {
+                var chanId = item.Channel.ChanId;
+                var startTime = item.Recording.StartTs.ToString(Format.UTC);
+                recInfo.ImageUrl = $"{Plugin.Instance.Configuration.WebServiceUrl}/Content/GetPreviewImage?ChanId={chanId}&StartTime={startTime}";
             }
 
             return recInfo;
