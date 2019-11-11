@@ -1,7 +1,7 @@
 ﻿
 using Jellyfin.MythTv.Model;
-using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
@@ -11,11 +11,8 @@ namespace Jellyfin.MythTv.Protocol
         public bool IsPlaying { get; private set; } = false;
         public bool IsLiveRecording { get; private set; } = false;
 
-        public ProtoRecorder()
-        {
-            AnnounceMode = AnnounceModeType.Playback;
-
-            Task.WaitAll(Open());
+        public ProtoRecorder(int id, string server, int port, ILogger logger) : base(server, port, AnnounceModeType.Playback, EventModeType.None, logger) {
+            Id = id;
         }
 
         ~ProtoRecorder()
@@ -27,23 +24,24 @@ namespace Jellyfin.MythTv.Protocol
         {
             if (disposing && IsPlaying)
             {
-                Task.WaitAll(StopLiveTV());
+                Task.WaitAll(StopLiveTVAsync());
             }
 
             base.Dispose(disposing);
         }
 
-        public async Task<bool> SpawnLiveTV(string chainid, string channum)
+        public async Task<bool> SpawnLiveTVAsync(Chain chain, string channum)
         {
-            return await SpawnLiveTV75(chainid, channum);
+            if (!IsOpen) {
+                await OpenAsync();
+            }
+
+            return await SpawnLiveTV75Async(chain, channum);
         }
 
-        private async Task<bool> SpawnLiveTV75(string chainid, string channum)
+        private async Task<bool> SpawnLiveTV75Async(Chain chain, string channum)
         {
-            if (!IsOpen)
-                return false;
-
-            var cmd = $"QUERY_RECORDER {Id}{DELIMITER}SPAWN_LIVETV{DELIMITER}{chainid}{DELIMITER}0{DELIMITER}{channum}";
+            var cmd = $"QUERY_RECORDER {Id}{DELIMITER}SPAWN_LIVETV{DELIMITER}{chain.UID}{DELIMITER}0{DELIMITER}{channum}";
 
             IsPlaying = true;
 
@@ -53,7 +51,7 @@ namespace Jellyfin.MythTv.Protocol
             return IsPlaying;
         }
 
-        private async Task<bool> StopLiveTV75()
+        private async Task<bool> StopLiveTV75Async()
         {
             var cmd = $"QUERY_RECORDER {Id}{DELIMITER}STOP_LIVETV";
             var result = await SendCommandAsync(cmd);
@@ -64,12 +62,15 @@ namespace Jellyfin.MythTv.Protocol
             return true;
         }
 
-        public async Task<bool> StopLiveTV()
+        public async Task StopLiveTVAsync()
         {
-            return await StopLiveTV75();
+            var stopped = await StopLiveTV75Async();
+            if (stopped) {
+                await CloseAsync();
+            }
         }
 
-        public async Task<Program> GetCurrentRecording75()
+        private async Task<Program> GetCurrentRecording75Async()
         {
             var cmd = $"QUERY_RECORDER {Id}{DELIMITER}GET_CURRENT_RECORDING";
             var result = await SendCommandAsync(cmd);
@@ -77,7 +78,12 @@ namespace Jellyfin.MythTv.Protocol
             return RcvProgramInfo86(result);
         }
 
-        public async Task<StorageGroupFile> QuerySGFile75(string hostname, string storageGroup, string filename)
+        public async Task<Program> GetCurrentRecordingAsync()
+        {
+            return await GetCurrentRecording75Async();
+        }
+
+        public async Task<StorageGroupFile> QuerySGFile75Async(string hostname, string storageGroup, string filename)
         {
             var cmd = $"QUERY_SG_FILEQUERY{DELIMITER}{hostname}{DELIMITER}{storageGroup}{DELIMITER}{filename}";
             var result = await SendCommandAsync(cmd);
@@ -89,6 +95,10 @@ namespace Jellyfin.MythTv.Protocol
                 LastModified = UnixTimeStampToDateTime(int.Parse(result[1])),
                 Size = long.Parse(result[2])
             };
+        }
+
+        public async Task<StorageGroupFile> QuerySGFileAsync(string hostname, string storageGroup, string filename) {
+            return await QuerySGFile75Async(hostname, storageGroup, filename);
         }
     }
 }

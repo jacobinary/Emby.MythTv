@@ -34,7 +34,7 @@ namespace Jellyfin.MythTv
         {
             get
             {
-                return "MythTV Recordings";
+                return "Recordings";
             }
         }
 
@@ -42,7 +42,7 @@ namespace Jellyfin.MythTv
         {
             get
             {
-                return "MythTV Recordings";
+                return "Recordings";
             }
         }
 
@@ -120,10 +120,7 @@ namespace Jellyfin.MythTv
 
         public IEnumerable<ImageType> GetSupportedChannelImages()
         {
-            return new List<ImageType>
-            {
-                ImageType.Primary
-            };
+            return new List<ImageType>();
         }
 
         public bool IsEnabledFor(string userId)
@@ -264,88 +261,87 @@ namespace Jellyfin.MythTv
             var service = GetService();
 
             var allRecordings = await service.GetRecordingsAsync(cancellationToken).ConfigureAwait(false);
-            var result = new ChannelItemResult()
-                {
-                    Items = new List<ChannelItemInfo>()
-                };
+            var result = new ChannelItemResult
+            {
+                Items = new List<ChannelItemInfo>()
+            };
 
             var series = allRecordings
                 .Where(i => i.IsSeries)
                 .ToLookup(i => i.Name, StringComparer.OrdinalIgnoreCase);
 
             result.Items.AddRange(series.OrderBy(i => i.Key).Select(i => new ChannelItemInfo
-                    {
-                        Name = i.Key,
-                        FolderType = ChannelFolderType.Container,
-                        Id = "series_" + i.Key.GetMD5().ToString("N"),
-                        Type = ChannelItemType.Folder,
-                        ImageUrl = i.First().ImageUrl
-                    }));
+            {
+                Name = i.Key,
+                FolderType = ChannelFolderType.Container,
+                Id = "series_" + i.Key.GetMD5().ToString("N"),
+                Type = ChannelItemType.Folder,
+                ImageUrl = i.First().ImageUrl
+            }));
 
             var kids = allRecordings.FirstOrDefault(i => i.IsKids);
-
             if (kids != null)
             {
                 result.Items.Add(new ChannelItemInfo
-                        {
-                            Name = "Kids",
-                            FolderType = ChannelFolderType.Container,
-                            Id = "kids",
-                            Type = ChannelItemType.Folder,
-                            ImageUrl = kids.ImageUrl
-                        });
+                {
+                    Name = "Kids",
+                    FolderType = ChannelFolderType.Container,
+                    Id = "kids",
+                    Type = ChannelItemType.Folder,
+                    ImageUrl = kids.ImageUrl
+                });
             }
 
             var movies = allRecordings.FirstOrDefault(i => i.IsMovie);
             if (movies != null)
             {
                 result.Items.Add(new ChannelItemInfo
-                        {
-                            Name = "Movies",
-                            FolderType = ChannelFolderType.Container,
-                            Id = "movies",
-                            Type = ChannelItemType.Folder,
-                            ImageUrl = movies.ImageUrl
-                        });
+                {
+                    Name = "Movies",
+                    FolderType = ChannelFolderType.Container,
+                    Id = "movies",
+                    Type = ChannelItemType.Folder,
+                    ImageUrl = movies.ImageUrl
+                });
             }
 
             var news = allRecordings.FirstOrDefault(i => i.IsNews);
             if (news != null)
             {
                 result.Items.Add(new ChannelItemInfo
-                        {
-                            Name = "News",
-                            FolderType = ChannelFolderType.Container,
-                            Id = "news",
-                            Type = ChannelItemType.Folder,
-                            ImageUrl = news.ImageUrl
-                        });
+                {
+                    Name = "News",
+                    FolderType = ChannelFolderType.Container,
+                    Id = "news",
+                    Type = ChannelItemType.Folder,
+                    ImageUrl = news.ImageUrl
+                });
             }
 
             var sports = allRecordings.FirstOrDefault(i => i.IsSports);
             if (sports != null)
             {
                 result.Items.Add(new ChannelItemInfo
-                        {
-                            Name = "Sports",
-                            FolderType = ChannelFolderType.Container,
-                            Id = "sports",
-                            Type = ChannelItemType.Folder,
-                            ImageUrl = sports.ImageUrl
-                        });
+                {
+                    Name = "Sports",
+                    FolderType = ChannelFolderType.Container,
+                    Id = "sports",
+                    Type = ChannelItemType.Folder,
+                    ImageUrl = sports.ImageUrl
+                });
             }
 
             var other = allRecordings.FirstOrDefault(i => !i.IsSports && !i.IsNews && !i.IsMovie && !i.IsKids && !i.IsSeries);
             if (other != null)
             {
                 result.Items.Add(new ChannelItemInfo
-                        {
-                            Name = "Others",
-                            FolderType = ChannelFolderType.Container,
-                            Id = "others",
-                            Type = ChannelItemType.Folder,
-                            ImageUrl = other.ImageUrl
-                        });
+                {
+                    Name = "Others",
+                    FolderType = ChannelFolderType.Container,
+                    Id = "others",
+                    Type = ChannelItemType.Folder,
+                    ImageUrl = other.ImageUrl
+                });
             }
 
             return result;

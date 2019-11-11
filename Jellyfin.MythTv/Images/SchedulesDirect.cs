@@ -246,8 +246,7 @@ namespace Jellyfin.MythTv
             {
                 using (var innerResponse2 = await Post(httpOptions, true).ConfigureAwait(false))
                 {
-                    return _jsonSerializer.DeserializeFromStream<List<ScheduleDirect.ShowImages>>(
-                                                                                                  innerResponse2.Content);
+                    return _jsonSerializer.DeserializeFromStream<List<ScheduleDirect.ShowImages>>(innerResponse2.Content);
                 }
             }
             catch (Exception ex)

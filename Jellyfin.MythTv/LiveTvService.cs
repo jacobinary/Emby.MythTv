@@ -146,11 +146,11 @@ namespace Jellyfin.MythTv
         private HttpRequestOptions GetOptions(CancellationToken cancellationToken, string uriPathQuery, params object[] plist)
         {
             var options = new HttpRequestOptions
-                {
-                    CancellationToken = cancellationToken,
-                    Url = string.Format("{0}{1}", Plugin.Instance.Configuration.WebServiceUrl, string.Format(uriPathQuery, plist)),
-                    AcceptHeader = "application/json"
-                };            
+            {
+                CancellationToken = cancellationToken,
+                Url = string.Format("{0}{1}", Plugin.Instance.Configuration.WebServiceUrl, string.Format(uriPathQuery, plist)),
+                AcceptHeader = "application/json"
+            };            
 
             return options;
         }
@@ -355,10 +355,7 @@ namespace Jellyfin.MythTv
             var url = $"/Dvr/AddDontRecordSchedule?ChanId={ChannelId}&StartTime={StartTime}&NeverRecord=False";
 
             var options = GetOptions(cancellationToken, url);
-            using (var stream = await _httpClient.Get(options))
-            {
-                //nothing to do
-            }
+            await _httpClient.Get(options).ConfigureAwait(false);
 
         }
 
@@ -374,7 +371,7 @@ namespace Jellyfin.MythTv
 
             using (var stream = await _httpClient.Get(GetOptions(cancellationToken, "/Dvr/GetUpcomingList?ShowAll=false")).ConfigureAwait(false))
             {
-                return  new DvrResponse().GetUpcomingList(stream, _jsonSerializer, _logger);
+                return new DvrResponse().GetUpcomingList(stream, _jsonSerializer, _logger);
             }
         }
 
@@ -510,21 +507,6 @@ namespace Jellyfin.MythTv
             throw new NotImplementedException();
         }
 
-        private async Task EnsureConnection()
-        {
-            _logger.LogInformation("[MythTV] Connecting...");
-            
-            if (_manager == null)
-            {
-                _manager = new ProtoManager {
-                    Server = Plugin.Instance.Configuration.Host,
-                    Port = 6543
-                };
-
-                await _manager.Open();
-            }
-        }
-
         public async Task<MediaSourceInfo> GetChannelStream(string channelId, string mediaSourceId, CancellationToken cancellationToken)
         {
             _logger.LogInformation($"[MythTV] Start ChannelStream for {channelId}");
@@ -532,15 +514,23 @@ namespace Jellyfin.MythTv
             // await GetChannels if channelNums isn't populated
             if (channelNums == null)
                 await GetChannelsAsync(cancellationToken);
+            
+            if (_manager == null)
+            {
+                _logger.LogInformation($"[MythTV] Start Manager");
 
-            // make sure livetv connected
-            await EnsureConnection();
+                _manager = new ProtoManager(
+                    server: Plugin.Instance.Configuration.Host,
+                    port: 6543,
+                    logger: _logger
+                );
+            }
             
             var id = await _manager.SpawnLiveTV(channelNums[channelId]);
             if (id == 0)
                 return new MediaSourceInfo();
             
-            var filepath = await _manager.GetCurrentRecording(id, Plugin.Instance.Configuration.StorageGroupMaps);
+            var filepath = await _manager.GetCurrentRecordingAsync(id, Plugin.Instance.Configuration.StorageGroupMaps);
 
             _logger.LogInformation($"[MythTV] ChannelStream at {filepath}");
 
@@ -579,8 +569,8 @@ namespace Jellyfin.MythTv
 
         public async Task CloseLiveStream(string id, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"[MythTV] Closing {id}");
-            await _manager.StopLiveTV(int.Parse(id));
+            _logger.LogInformation($"[MythTV] Closing Live Stream {id}");
+            await _manager.StopLiveTVAsync(int.Parse(id));
         }
 
         public async Task<SeriesTimerInfo> GetNewTimerDefaultsAsync(CancellationToken cancellationToken, ProgramInfo program = null)

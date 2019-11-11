@@ -32,115 +32,118 @@ namespace Jellyfin.MythTv.Responses
 
         private ProgramInfo GetProgram(string channelId, Program prog)
         {
-            var info = new ProgramInfo()
-                {
+            var info = new ProgramInfo
+            {
 
-                    /// Id of the program.
-                    Id = string.Format("{1}_{0}", ((DateTime)prog.StartTime).Ticks, channelId),
+                /// Id of the program.
+                Id = string.Format("{1}_{0}", ((DateTime)prog.StartTime).Ticks, channelId),
 
-                    /// Gets or sets the channel identifier.
-                    ChannelId = channelId,
+                /// Gets or sets the channel identifier.
+                ChannelId = channelId,
 
-                    /// Name of the program
-                    Name = prog.Title,
+                /// Name of the program
+                Name = prog.Title,
 
-                    /// Gets or sets the official rating.
-                    // public OfficialRating { get; set; }
+                /// Gets or sets the official rating.
+                // public OfficialRating { get; set; }
 
-                    /// Gets or sets the overview.
-                    Overview = prog.Description,
+                /// Gets or sets the overview.
+                Overview = prog.Description,
 
-                    /// Gets or sets the short overview.
-                    ShortOverview = null,
+                /// Gets or sets the short overview.
+                ShortOverview = null,
 
-                    /// The start date of the program, in UTC.
-                    StartDate = (DateTime)prog.StartTime,
+                /// The start date of the program, in UTC.
+                StartDate = (DateTime)prog.StartTime,
 
-                    /// The end date of the program, in UTC.
-                    EndDate = (DateTime)prog.EndTime,
+                /// The end date of the program, in UTC.
+                EndDate = (DateTime)prog.EndTime,
 
-                    /// Genre of the program.
-                    // public List<string> Genres { get; set; }
+                /// Genre of the program.
+                // public List<string> Genres { get; set; }
 
-                    /// Gets or sets the original air date.
-                    OriginalAirDate = prog.Airdate,
+                /// Gets or sets the original air date.
+                OriginalAirDate = prog.Airdate,
 
-                    /// Gets or sets a value indicating whether this instance is hd.
-                    IsHD = (prog.VideoProps & VideoFlags.VID_HDTV) == VideoFlags.VID_HDTV,
+                /// Gets or sets a value indicating whether this instance is hd.
+                IsHD = (prog.VideoProps & VideoFlags.VID_HDTV) == VideoFlags.VID_HDTV,
 
-                    Is3D = (prog.VideoProps & VideoFlags.VID_3DTV) == VideoFlags.VID_3DTV,
+                Is3D = (prog.VideoProps & VideoFlags.VID_3DTV) == VideoFlags.VID_3DTV,
 
-                    /// Gets or sets the audio.
-                    Audio = ConvertAudioFlags(prog.AudioProps), //Hardcode for now (ProgramAudio)item.AudioProps,
-                    
-                    /// Gets or sets the community rating.
-                    CommunityRating = prog.Stars,
+                /// Gets or sets the audio.
+                Audio = ConvertAudioFlags(prog.AudioProps), //Hardcode for now (ProgramAudio)item.AudioProps,
+                
+                /// Gets or sets the community rating.
+                CommunityRating = prog.Stars,
 
-                    /// Gets or sets a value indicating whether this instance is repeat.
-                    IsRepeat = prog.Repeat,
+                /// Gets or sets a value indicating whether this instance is repeat.
+                IsRepeat = prog.Repeat,
 
-                    IsSubjectToBlackout = false,
+                IsSubjectToBlackout = false,
 
-                    /// Gets or sets the episode title.
-                    EpisodeTitle = prog.SubTitle,
+                /// Gets or sets the episode title.
+                EpisodeTitle = prog.SubTitle,
 
-                    /// Supply the image path if it can be accessed directly from the file system
-                    // public string ImagePath { get; set; }
+                /// Supply the image path if it can be accessed directly from the file system
+                // public string ImagePath { get; set; }
 
-                    /// Supply the image url if it can be downloaded
-                    // public string ImageUrl { get; set; }
+                /// Supply the image url if it can be downloaded
+                // public string ImageUrl { get; set; }
 
-                    // public string LogoImageUrl { get; set; }
+                // public string LogoImageUrl { get; set; }
 
-                    /// Gets or sets a value indicating whether this instance has image.
-                    // public bool? HasImage { get; set; }
+                /// Gets or sets a value indicating whether this instance has image.
+                // public bool? HasImage { get; set; }
 
-                    /// Gets or sets a value indicating whether this instance is movie.
-                    IsMovie = GeneralHelpers.ContainsWord(prog.CatType, "movie", StringComparison.OrdinalIgnoreCase),
+                /// Gets or sets a value indicating whether this instance is movie.
+                IsMovie = GeneralHelpers.ContainsWord(prog.CatType, "movie", StringComparison.OrdinalIgnoreCase),
 
-                    /// Gets or sets a value indicating whether this instance is sports.
-                    IsSports =
-                    GeneralHelpers.ContainsWord(prog.Category, "sport",
+                /// Gets or sets a value indicating whether this instance is sports.
+                IsSports =
+                    GeneralHelpers.ContainsWord(prog.CatType, "sports",
                                                 StringComparison.OrdinalIgnoreCase) ||
-                    GeneralHelpers.ContainsWord(prog.Category, "motor sports",
+                    GeneralHelpers.ContainsWord(prog.CatType, "cricket",
                                                 StringComparison.OrdinalIgnoreCase) ||
-                    GeneralHelpers.ContainsWord(prog.Category, "football",
+                    GeneralHelpers.ContainsWord(prog.CatType, "baseball",
                                                 StringComparison.OrdinalIgnoreCase) ||
-                    GeneralHelpers.ContainsWord(prog.Category, "cricket",
+                    GeneralHelpers.ContainsWord(prog.CatType, "basketball",
+                                                StringComparison.OrdinalIgnoreCase) ||
+                    GeneralHelpers.ContainsWord(prog.CatType, "football",
+                                                StringComparison.OrdinalIgnoreCase) ||
+                    GeneralHelpers.ContainsWord(prog.CatType, "hockey",
                                                 StringComparison.OrdinalIgnoreCase),
 
-                    /// Gets or sets a value indicating whether this instance is series.
-                    IsSeries = GeneralHelpers.ContainsWord(prog.CatType, "series", StringComparison.OrdinalIgnoreCase),
+                /// Gets or sets a value indicating whether this instance is series.
+                IsSeries = GeneralHelpers.ContainsWord(prog.CatType, "series", StringComparison.OrdinalIgnoreCase),
 
-                    /// Gets or sets a value indicating whether this instance is live.
-                    // public bool IsLive { get; set; }
+                /// Gets or sets a value indicating whether this instance is live.
+                // public bool IsLive { get; set; }
 
-                    /// Gets or sets a value indicating whether this instance is news.
-                    IsNews = GeneralHelpers.ContainsWord(prog.Category, "news",
-                                                         StringComparison.OrdinalIgnoreCase),
+                /// Gets or sets a value indicating whether this instance is news.
+                IsNews = 
+                    GeneralHelpers.ContainsWord(prog.CatType, "news", StringComparison.OrdinalIgnoreCase),
 
-                    /// Gets or sets a value indicating whether this instance is kids.
-                    IsKids = GeneralHelpers.ContainsWord(prog.Category, "animation",
-                                                         StringComparison.OrdinalIgnoreCase),
+                /// Gets or sets a value indicating whether this instance is kids.
+                IsKids = GeneralHelpers.ContainsWord(prog.CatType, "children",  StringComparison.OrdinalIgnoreCase),
 
-                    // public bool IsEducational { get; set; }
+                // public bool IsEducational { get; set; }
 
-                    /// Gets or sets a value indicating whether this instance is premiere.
-                    // public bool IsPremiere { get; set;  }
+                /// Gets or sets a value indicating whether this instance is premiere.
+                // public bool IsPremiere { get; set;  }
 
-                    /// Gets or sets the production year.
-                    // public int? ProductionYear { get; set; }
+                /// Gets or sets the production year.
+                // public int? ProductionYear { get; set; }
 
-                    /// Gets or sets the home page URL.
-                    // public string HomePageUrl { get; set; }
+                /// Gets or sets the home page URL.
+                // public string HomePageUrl { get; set; }
 
-                    /// Gets or sets the series identifier.
-                    SeriesId = prog.SeriesId,
+                /// Gets or sets the series identifier.
+                SeriesId = prog.SeriesId,
 
-                    /// Gets or sets the show identifier.
-                    ShowId = prog.ProgramId,
+                /// Gets or sets the show identifier.
+                ShowId = prog.ProgramId
 
-                };
+            };
 
             if (prog.Season != null && prog.Season > 0 &&
                 prog.Episode != null && prog.Episode > 0)

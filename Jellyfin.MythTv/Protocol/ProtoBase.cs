@@ -29,8 +29,8 @@ namespace Jellyfin.MythTv.Protocol
             SystemOnly = 3
         }
 
-        public string Server { get; set; }
-        public int Port { get; set; }
+        public string Server { get; protected set; }
+        public int Port { get; protected set; }
         public AnnounceModeType AnnounceMode { get; protected set; } = AnnounceModeType.Monitor;
         public EventModeType EventMode { get; protected set; } = EventModeType.None;
 
@@ -48,8 +48,12 @@ namespace Jellyfin.MythTv.Protocol
             {88, "XmasGift"}
         };
 
-        public ProtoBase() {
-
+        public ProtoBase(string server, int port, AnnounceModeType announceMode, EventModeType eventMode, ILogger logger) {
+            Server = server;
+            Port = port;
+            AnnounceMode = announceMode;
+            EventMode = eventMode;
+            Logger = logger;
         }
 
         ~ProtoBase()
@@ -57,9 +61,9 @@ namespace Jellyfin.MythTv.Protocol
             Dispose(false);
         }
 
-        public virtual async Task<bool> Open()
+        protected virtual async Task<bool> OpenAsync()
         {
-            if (!await OpenConnection())
+            if (!await OpenConnectionAsync())
             {
                 return false;
             }
@@ -71,7 +75,7 @@ namespace Jellyfin.MythTv.Protocol
                 return true;
             }
 
-            await Close();
+            await CloseAsync();
             return false;
         }
 
@@ -79,9 +83,9 @@ namespace Jellyfin.MythTv.Protocol
         {
             if (disposing && socket != null)
             {
-                Task.WaitAll(Close());
-                socket.Dispose();
-                socket = null;
+                Task.WaitAll(CloseAsync());
+
+                Logger.LogInformation($"[MythTV] MythProtocol connection closed, protocol version {ProtoVersion}");
             }
         }
 
@@ -139,6 +143,10 @@ namespace Jellyfin.MythTv.Protocol
 
         protected async Task<List<string>> SendCommandAsync(string command)
         {
+            return await SendCommandAsync(command, true);
+        }
+        protected async Task<List<string>> SendCommandAsync(string command, bool waitForResponse)
+        {
             command = FormatMessage(command);
 
             Logger.LogDebug($"[MythTV] Sending: {command}");
@@ -146,6 +154,10 @@ namespace Jellyfin.MythTv.Protocol
             try
             {
                 await WriteAsync(command);
+
+                if (!waitForResponse) {
+                    return null;
+                }
 
                 return await ListenAsync();
             }
@@ -156,7 +168,7 @@ namespace Jellyfin.MythTv.Protocol
             }
         }
 
-        public async Task<bool> OpenConnection()
+        private async Task<bool> OpenConnectionAsync()
         {
             Logger.LogInformation("[MythTV] Initiating MythProtocol connection");
 
@@ -172,7 +184,9 @@ namespace Jellyfin.MythTv.Protocol
             }
 
             // Rejected, close socket
-            await Close();
+            await CloseAsync();
+
+            Logger.LogInformation("[MythTV] No MythProtocol connection");
 
             // Got rejected, so see if we speak the required version
             uint server_version = Convert.ToUInt32(result[1]);
@@ -191,20 +205,25 @@ namespace Jellyfin.MythTv.Protocol
             return IsOpen;
         }
 
-        public virtual async Task Close()
+        protected virtual async Task CloseAsync()
         {
+
             if (socket.Connected && IsOpen)
             {
-                await SendCommandAsync("DONE");
+                await SendCommandAsync("DONE", false);
+
+                socket.Close();
+                socket = null;
+
+                Logger.LogInformation($"[MythTV] MythProtocol connection closed, protocol version {ProtoVersion}");
             }
+
             IsOpen = false;
         }
 
         public virtual async Task<bool> Announce75()
         {
-            var announceMode = Enum.GetName(typeof(AnnounceModeType), AnnounceMode);
-            var eventMode = EventMode;
-            var result = await SendCommandAsync($"ANN {announceMode} jellyfin {eventMode}");
+            var result = await SendCommandAsync($"ANN {AnnounceMode} jellyfin {(int)EventMode}");
             return result[0] == "OK";
         }
 

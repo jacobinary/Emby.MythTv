@@ -2,26 +2,31 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Jellyfin.MythTv.Model;
+using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol
 {
     class ProtoInput : ProtoBase
     {
 
-        public ProtoInput()
+        public ProtoInput(string server, int port, ILogger logger) : base (server, port, AnnounceModeType.Monitor, EventModeType.None, logger) {}
+
+         public async Task<Input> GetFreeInputAsync()
         {
-            AnnounceMode = AnnounceModeType.Monitor;
+            var inputs = await GetFreeInputsAsync();
+
+            return inputs.Count > 0 ? inputs[0] : null;
         }
 
-        public async Task<List<Input>> GetFreeInputs()
+        public async Task<List<Input>> GetFreeInputsAsync()
         {
-            if (ProtoVersion >= 91) return await GetFreeInputs91();
-            if (ProtoVersion >= 90) return await GetFreeInputs90();
-            if (ProtoVersion >= 89) return await GetFreeInputs89();
-            return await GetFreeInputs87();
+            if (ProtoVersion >= 91) return await GetFreeInputs91Async();
+            if (ProtoVersion >= 90) return await GetFreeInputs90Async();
+            if (ProtoVersion >= 89) return await GetFreeInputs89Async();
+            return await GetFreeInputs87Async();
         }
 
-        public async Task<List<Input>> GetFreeInputs87()
+        private async Task<List<Input>> GetFreeInputs87Async()
         {
             var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
@@ -51,7 +56,7 @@ namespace Jellyfin.MythTv.Protocol
             return output;
         }
 
-        public async Task<List<Input>> GetFreeInputs89()
+        private async Task<List<Input>> GetFreeInputs89Async()
         {
             var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
@@ -81,7 +86,7 @@ namespace Jellyfin.MythTv.Protocol
             return output;
         }
 
-        public async Task<List<Input>> GetFreeInputs90()
+        private async Task<List<Input>> GetFreeInputs90Async()
         {
             var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();
@@ -111,7 +116,7 @@ namespace Jellyfin.MythTv.Protocol
             return output;
         }
 
-        public async Task<List<Input>> GetFreeInputs91()
+        private async Task<List<Input>> GetFreeInputs91Async()
         {
             var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
             var output = new List<Input>();

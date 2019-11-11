@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol {
@@ -8,59 +10,79 @@ namespace Jellyfin.MythTv.Protocol {
         public ProtoEventFormatException(List<string> eventStrings) : base("[Mythtv] Unrecognized backend message: {eventStrings.ToString()}") {}
     }
 
-	class ProtoEventArgs : EventArgs  
-	{  
-        public string Name { get; set; }
-        public string Message { get; set; }
-	}
-
 	class ProtoEvent : ProtoBase
     {
-		public bool IsRunning { get; private set; }
+        protected static readonly string MESSAGE_DELIMITER = " ";
 
-        public delegate void EventHandler(object sender, ProtoEventArgs e);
+		public bool IsListening { get; private set; } = false;
+
+        public delegate void EventHandler(object sender, ProtoMessage e);
 
         public event EventHandler Event;
 		
-		public ProtoEvent()
-		{
-            AnnounceMode = AnnounceModeType.Monitor;
-		}
+		public ProtoEvent(string server, int port, EventModeType eventMode, ILogger logger) : base (server, port, AnnounceModeType.Monitor, eventMode, logger) {}
 
-        private ProtoEventArgs formatProtoEventStrings(List<string> eventStrings) {
+        private ProtoMessage formatProtoEventStrings(List<string> eventStrings) {
             if (eventStrings.Count == 0) {
                 throw new ProtoEventFormatException(eventStrings);
             }
 
-            var name = eventStrings[0];
-            var message = eventStrings.Count > 1 ? eventStrings[1] : "";
-            
-            return new ProtoEventArgs
+            var messageStrings = eventStrings[1].Split(new[] { MESSAGE_DELIMITER }, StringSplitOptions.None).ToList();
+            if (messageStrings.Count == 0) {
+                throw new ProtoEventFormatException(eventStrings);
+            }
+
+            return new ProtoMessage
             {
-                Name = name,
-                Message = message
+                Name = (BackendMessage)Enum.Parse(typeof(BackendMessage), messageStrings[0], true),
+                Data = messageStrings.Count >= 1 ? messageStrings.GetRange(1, messageStrings.Count - 2) : new List<string>()
             };
+        }
+
+        private void Broadcast(List<string> res) {
+            var eventHandler = Event;
+            if (eventHandler != null) {
+                eventHandler(this, formatProtoEventStrings(res));
+            }
         }
 
 		public async Task StartAsync()
         {
-			while (IsRunning)
+            if (!IsOpen) {
+                await OpenAsync();
+            }
+            
+			_ = ListenAndHandleAsync();
+		}
+
+        protected async Task ListenAndHandleAsync() {
+            Logger.LogInformation("[MythTV] Start listening for events");
+
+            IsListening = true;
+
+            while (IsOpen && IsListening)
             {
                 try {
                     var eventHandler = Event;
-                    if (eventHandler != null && IsRunning) {
-                        eventHandler(this, formatProtoEventStrings(await ListenAsync()));
+                    if (eventHandler != null) {
+                        Broadcast(await ListenAsync());
                     }
                 } catch(ProtoEventFormatException ex) {
                     // If invalid proto event, just log and continue
-                    Logger.LogInformation(ex.Message);
+                    Logger.LogInformation($"[MythTV] {ex.Message}");
                 }
 			}
-		}
+        }
 
-		public void StopAsync()
+		public async Task StopAsync()
         {
-			IsRunning = false;
+            Logger.LogInformation("[MythTV] Stop listening for events");
+
+            IsListening = false;
+
+            if (IsOpen) {
+                await CloseAsync();
+            }
 		}
 	}
 }

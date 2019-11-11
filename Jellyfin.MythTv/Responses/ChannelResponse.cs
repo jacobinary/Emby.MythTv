@@ -25,21 +25,17 @@ namespace Jellyfin.MythTv.Responses
             var root = json.DeserializeFromStream<RootChannelInfoListObject>(stream).ChannelInfoList.ChannelInfos;
             logger.LogDebug(string.Format("[MythTV] GetChannels Response: {0}",
                                        json.SerializeToString(root)));
-            return root.Select(x => GetChannel(x, loadChannelIcons));
+            return root.Select(x => GetChannel(x, loadChannelIcons, logger));
         }
 
-        private static ChannelInfo GetChannel(Channel channel, bool loadChannelIcons)
+        private static ChannelInfo GetChannel(Channel channel, bool loadChannelIcons, ILogger logger)
         {
-            bool hasIconUrl = string.IsNullOrWhiteSpace(channel.IconURL);
-
             return new ChannelInfo
             {
                 Name = channel.ChannelName,
                 Number = channel.ChanNum,
                 Id = channel.ChanId,
-                ImageUrl = hasIconUrl
-                            ? string.Format("{0}/Guide/GetChannelIcon?ChanId={1}", Plugin.Instance.Configuration.WebServiceUrl, channel.ChanId)
-                            : "https://www.mythtv.org/img/mythtv.png"
+                ImageUrl = string.Format("{0}/Guide/GetChannelIcon?ChanId={1}", Plugin.Instance.Configuration.WebServiceUrl, channel.ChanId)
             };
         }
 

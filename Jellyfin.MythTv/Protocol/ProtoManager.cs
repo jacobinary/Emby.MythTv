@@ -1,9 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Jellyfin.MythTv.Model;
 using Microsoft.Extensions.Logging;
+using MediaBrowser.Model.System;
 
 namespace Jellyfin.MythTv.Protocol
 {
@@ -14,25 +16,30 @@ namespace Jellyfin.MythTv.Protocol
 
         private ProtoEvent events;
 
-        private void EventHandler(object sender, ProtoEventArgs e)
+        private void EventHandler(object sender, ProtoMessage e)
         {
-            
+            Logger.LogInformation($"[MythTV] Event {e.Name}: {String.Join(", ", e.Data)}");
         }
         
-        public ProtoManager() : base() {
-            events = new ProtoEvent
-            {
-                Server = Server,
-                Port = Port,
-                Logger = Logger
+        public ProtoManager(string server, int port, ILogger logger) : base (server, port, logger) {}
+
+        private async Task StartEventListenerAsync() {
+            if (events == null) {
+                events = new ProtoEvent(Server, Port, EventModeType.ExcludeSystem, Logger);
+                events.Event += EventHandler;
                 
-            };
-            events.Event += EventHandler;
+                await events.StartAsync();
+            }
         }
 
-        public override async Task<bool> Open()
-        {
-            return await base.Open();
+        private async Task StopEventListenerAsync() {
+            if (events != null) {
+                events.Event -= EventHandler;
+
+                await events.StopAsync();
+                
+                events = null;
+            }
         }
 
         protected override void Dispose(bool disposing)
@@ -44,10 +51,7 @@ namespace Jellyfin.MythTv.Protocol
                     recorders = null;
                 }
 
-                if (events != null) {
-                    events.Event -= EventHandler;
-                    events = null;
-                }
+                Task.WaitAll(StopEventListenerAsync());
             }
 
             base.Dispose(disposing);
@@ -55,41 +59,45 @@ namespace Jellyfin.MythTv.Protocol
 
         public async Task<int> SpawnLiveTV(string chanNum)
         {
-            if (!IsOpen)
+            if (!IsOpen) {
+                await OpenAsync();
+            }
+
+            Logger.LogInformation($"[MythTV] ffmmpeg: {SystemInfo.EncoderLocation}");
+
+            await StartEventListenerAsync();
+
+            var chain = new Chain(await GetFreeInputAsync());
+
+            if (chain.Input == null) {
                 return 0;
+            }
 
-            var cards = await GetFreeInputs();
+            var recorder = new ProtoRecorder(chain.Input.CardId, Server, Port, Logger);
 
-            var recorder = new ProtoRecorder
-            {
-                Server = Server,
-                Port = Port,
-                Id = cards[0].CardId,
-                Logger = Logger
-                
-            };
-            var chain = new Chain();
-
-            if (await recorder.SpawnLiveTV(chain.UID, chanNum))
+            if (await recorder.SpawnLiveTVAsync(chain, chanNum))
             {
                 recorders.Add(++nextRecorderId, recorder);
                 
                 return nextRecorderId;
             }
 
-            await recorder.StopLiveTV();
+            await recorder.StopLiveTVAsync();
             return 0;
         }
 
-        public async Task<string> GetCurrentRecording(int id, List<StorageGroupMap> groups)
+        public async Task<string> GetCurrentRecordingAsync(int id, List<StorageGroupMap> groups)
         {
             var recorder = recorders[id];
+            if (recorder == null && recorder.IsPlaying) {
+                throw new InvalidOperationException("That Live TV instance is not playing");
+            }
             
             StorageGroupFile file = null;
             do
             {
-                var program = await recorder.GetCurrentRecording75();
-                file = await recorder.QuerySGFile75(program.HostName, program.Recording.StorageGroup, program.FileName);
+                var program = await recorder.GetCurrentRecordingAsync();
+                file = await recorder.QuerySGFileAsync(program.HostName, program.Recording.StorageGroup, program.FileName);
                 await Task.Delay(500);
             }
             while (file.Size == 0);
@@ -98,12 +106,17 @@ namespace Jellyfin.MythTv.Protocol
             return file.FileName.Replace(map.DirName, map.DirNameOverride);
         }
 
-        public async Task StopLiveTV(int id)
+        public async Task StopLiveTVAsync(int id)
         {
-            if (recorders.ContainsKey(id) && recorders[id].IsPlaying)
+            var recorder = recorders.ContainsKey(id) ? recorders[id] : null;
+            if (recorder != null && recorder.IsPlaying)
             {
-                await recorders[id].StopLiveTV();
+                await recorder.StopLiveTVAsync();
                 recorders.Remove(id);
+            }
+
+            if (recorders.Count == 0) {
+                await StopEventListenerAsync();
             }
         }
 
