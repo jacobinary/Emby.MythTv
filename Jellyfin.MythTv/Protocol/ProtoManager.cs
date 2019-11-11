@@ -63,8 +63,6 @@ namespace Jellyfin.MythTv.Protocol
                 await OpenAsync();
             }
 
-            Logger.LogInformation($"[MythTV] ffmmpeg: {SystemInfo.EncoderLocation}");
-
             await StartEventListenerAsync();
 
             var chain = new Chain(await GetFreeInputAsync());
