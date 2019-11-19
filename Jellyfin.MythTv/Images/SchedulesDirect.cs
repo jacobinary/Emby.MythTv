@@ -32,7 +32,6 @@ namespace Jellyfin.MythTv
 
         public async Task AddImages(IEnumerable<ProgramInfo> programs, CancellationToken cancellationToken)
         {
-            // get all images
             var progIds = programs.Select(p => p.ShowId).ToList();
             var images = await GetImageForPrograms(progIds, cancellationToken).ConfigureAwait(false);
             
@@ -41,7 +40,7 @@ namespace Jellyfin.MythTv
 
             foreach (var program in programs)
             {
-                var progImages = FilterImages(images, program.ShowId.Substring(0,10));
+                var progImages = GetImageUrls(images, program.ShowId.Substring(0,10));
 
                 program.ImageUrl = progImages.Image;
                 program.ThumbImageUrl = progImages.Thumb;
@@ -52,30 +51,27 @@ namespace Jellyfin.MythTv
         public async Task AddImages(IEnumerable<RecordingInfo> programs, CancellationToken cancellationToken)
         {
             _logger.LogDebug($"[MythTV] Add images");
+
             var progIds = programs.Select(p => p.ShowId).ToList();
             var images = await GetImageForPrograms(progIds, cancellationToken).ConfigureAwait(false);
             
             if (images == null)
                 return;
 
-            _logger.LogDebug($"[MythTV] Got images");
-
             foreach (var program in programs)
             {
                 if (program.ImageUrl != null)
                     continue;
                 
-                _logger.LogDebug($"[MythTV] Fetching SchedulesDirect images for recording {program.ShowId}");
-                
                 if (program.ShowId.Length >= 10) {
-                    var progImages = FilterImages(images, program.ShowId.Substring(0,10));
+                    var progImages = GetImageUrls(images, program.ShowId.Substring(0,10));
 
                     program.ImageUrl = progImages.Image;
                 }
             }
         }            
 
-        private Images FilterImages(List<ScheduleDirect.ShowImages> images, string programID)
+        private Images GetImageUrls(List<ScheduleDirect.ShowImages> images, string programID)
         {
 
             var imageIndex = images.FindIndex(i => i.programID == programID);
@@ -90,12 +86,12 @@ namespace Jellyfin.MythTv
                 double desiredAspect = 0.666666667;
                 double wideAspect = 1.77777778;
 
-                outp.Image = GetProgramImage(ApiUrl, imagesWithText, true, desiredAspect) ??
-                    GetProgramImage(ApiUrl, allImages, true, desiredAspect);
+                outp.Image = GetProgramImage(imagesWithText, true, desiredAspect) ??
+                    GetProgramImage(allImages, true, desiredAspect);
 
                 _logger.LogDebug($"[MythTV] Found Schedules Direct Image for {programID}: {outp.Image}");
 
-                outp.Thumb = GetProgramImage(ApiUrl, imagesWithText, true, wideAspect);
+                outp.Thumb = GetProgramImage(imagesWithText, true, wideAspect);
 
                 // Don't supply the same image twice
                 if (string.Equals(outp.Image, outp.Thumb, StringComparison.Ordinal))
@@ -103,7 +99,7 @@ namespace Jellyfin.MythTv
                     outp.Thumb = null;
                 }
 
-                outp.Backdrop = GetProgramImage(ApiUrl, imagesWithoutText, true, wideAspect);
+                outp.Backdrop = GetProgramImage(imagesWithoutText, true, wideAspect);
             }
 
             return outp;
@@ -132,7 +128,7 @@ namespace Jellyfin.MythTv
             return await Post(options, false).ConfigureAwait(false);
         }
 
-        private string GetProgramImage(string apiUrl, List<ScheduleDirect.ImageData> images, bool returnDefaultImage, double desiredAspect)
+        private string GetProgramImage(List<ScheduleDirect.ImageData> images, bool returnDefaultImage, double desiredAspect)
         {
             string url = null;
 
@@ -160,10 +156,9 @@ namespace Jellyfin.MythTv
                 }
                 else
                 {
-                    url = apiUrl + "/image/" + uri;
+                    url = ApiUrl + "/image/" + uri;
                 }
             }
-            //_logger.LogDebug("URL for image is : " + url);
             return url;
         }
 
@@ -206,8 +201,7 @@ namespace Jellyfin.MythTv
             return result;
         }
 
-        private async Task<List<ScheduleDirect.ShowImages>> GetImageForPrograms(List<string> programIds,
-                                                                                CancellationToken cancellationToken)
+        private async Task<List<ScheduleDirect.ShowImages>> GetImageForPrograms(List<string> programIds, CancellationToken cancellationToken)
         {
             _logger.LogDebug($"[MythTV] Fetching SchedulesDirect images");
             
@@ -216,29 +210,26 @@ namespace Jellyfin.MythTv
                 return new List<ScheduleDirect.ShowImages>();
             }
 
-            var imageIdString = "[";
-
+            var uniqueProgramIds = new List<string>();
             foreach (var i in programIds)
             {
                 if (i.Length >= 10)
                 {
                     var imageId = i.Substring(0, 10);
 
-                    if (!imageIdString.Contains(imageId))
+                    if (!uniqueProgramIds.Contains(imageId))
                     {
-                        imageIdString += "\"" + imageId + "\",";
+                        uniqueProgramIds.Add($"\"{imageId}\"");
                     }
                 }
             }
-
-            imageIdString = imageIdString.TrimEnd(',') + "]";
 
             var httpOptions = new HttpRequestOptions()
                 {
                     Url = ApiUrl + "/metadata/programs",
                     UserAgent = "Jellyfin",
                     CancellationToken = cancellationToken,
-                    RequestContent = imageIdString,
+                    RequestContent = $"[{String.Join(", ", uniqueProgramIds)}]",
                     LogErrorResponseBody = true
                 };
 

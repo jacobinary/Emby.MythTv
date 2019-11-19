@@ -63,7 +63,7 @@ namespace Jellyfin.MythTv.Protocol
 
         protected virtual async Task<bool> OpenAsync()
         {
-            if (!await OpenConnectionAsync())
+            if (!await OpenConnectionAsync().ConfigureAwait(false))
             {
                 return false;
             }
@@ -75,7 +75,7 @@ namespace Jellyfin.MythTv.Protocol
                 return true;
             }
 
-            await CloseAsync();
+            await CloseAsync().ConfigureAwait(false);
             return false;
         }
 
@@ -83,7 +83,7 @@ namespace Jellyfin.MythTv.Protocol
         {
             if (disposing && socket != null)
             {
-                Task.WaitAll(CloseAsync());
+                _ = CloseAsync().ConfigureAwait(false);
 
                 Logger.LogInformation($"[MythTV] MythProtocol connection closed, protocol version {ProtoVersion}");
             }
@@ -105,7 +105,7 @@ namespace Jellyfin.MythTv.Protocol
             var stream = socket.GetStream();
             var sendBytes = Encoding.ASCII.GetBytes(payload);
 
-            await stream.WriteAsync(sendBytes, 0, sendBytes.Length);
+            await stream.WriteAsync(sendBytes, 0, sendBytes.Length).ConfigureAwait(false);
         }
 
         protected async Task<string> ReadAsync(int length) {
@@ -116,7 +116,7 @@ namespace Jellyfin.MythTv.Protocol
 
             while (totalBytesRead < length)
             {
-                var bytesRead = await stream.ReadAsync(readBytes, 0, (length - totalBytesRead));
+                var bytesRead = await stream.ReadAsync(readBytes, 0, (length - totalBytesRead)).ConfigureAwait(false);
                 totalBytesRead += bytesRead;
 
                 result += Encoding.ASCII.GetString(readBytes, 0, bytesRead);
@@ -127,8 +127,8 @@ namespace Jellyfin.MythTv.Protocol
         
         protected async Task<List<string>> ListenAsync() {
             try {
-                var length = int.Parse(await ReadAsync(8));
-                var response = await ReadAsync(length);
+                var length = int.Parse(await ReadAsync(8).ConfigureAwait(false));
+                var response = await ReadAsync(length).ConfigureAwait(false);
 
                 Logger.LogDebug($"[MythTV] Received: {response}");
 
@@ -143,7 +143,7 @@ namespace Jellyfin.MythTv.Protocol
 
         protected async Task<List<string>> SendCommandAsync(string command)
         {
-            return await SendCommandAsync(command, true);
+            return await SendCommandAsync(command, true).ConfigureAwait(false);
         }
         protected async Task<List<string>> SendCommandAsync(string command, bool waitForResponse)
         {
@@ -153,13 +153,13 @@ namespace Jellyfin.MythTv.Protocol
 
             try
             {
-                await WriteAsync(command);
+                await WriteAsync(command).ConfigureAwait(false);
 
                 if (!waitForResponse) {
                     return null;
                 }
 
-                return await ListenAsync();
+                return await ListenAsync().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -173,10 +173,10 @@ namespace Jellyfin.MythTv.Protocol
             Logger.LogInformation("[MythTV] Initiating MythProtocol connection");
 
             socket = new TcpClient();
-            await socket.ConnectAsync(Server, Port);
+            await socket.ConnectAsync(Server, Port).ConfigureAwait(false);
             uint max_version = protomap.Keys.Max();
-            var result = await SendCommandAsync($"MYTH_PROTO_VERSION {max_version} {protomap[max_version]}");
-            IsOpen = result[0] == "ACCEPT";
+            var response = await SendCommandAsync($"MYTH_PROTO_VERSION {max_version} {protomap[max_version]}").ConfigureAwait(false);
+            IsOpen = response[0] == "ACCEPT";
             if(IsOpen)
             {
                 ProtoVersion = max_version;
@@ -184,19 +184,19 @@ namespace Jellyfin.MythTv.Protocol
             }
 
             // Rejected, close socket
-            await CloseAsync();
+            await CloseAsync().ConfigureAwait(false);
 
             Logger.LogInformation("[MythTV] No MythProtocol connection");
 
             // Got rejected, so see if we speak the required version
-            uint server_version = Convert.ToUInt32(result[1]);
+            uint server_version = Convert.ToUInt32(response[1]);
             if (!protomap.ContainsKey(server_version))
                 throw new Exception($"Unknown version {server_version}");
 
             socket = new TcpClient();
-            await socket.ConnectAsync(Server, Port);
-            result = await SendCommandAsync($"MYTH_PROTO_VERSION {server_version} {protomap[server_version]}");
-            IsOpen = result[0] == "ACCEPT";
+            await socket.ConnectAsync(Server, Port).ConfigureAwait(false);
+            var status = (await SendCommandAsync($"MYTH_PROTO_VERSION {server_version} {protomap[server_version]}").ConfigureAwait(false))[0];
+            IsOpen = status == "ACCEPT";
             if(IsOpen)
             {
                 ProtoVersion = server_version;
@@ -210,7 +210,7 @@ namespace Jellyfin.MythTv.Protocol
 
             if (socket.Connected && IsOpen)
             {
-                await SendCommandAsync("DONE", false);
+                await SendCommandAsync("DONE", false).ConfigureAwait(false);
 
                 socket.Close();
                 socket = null;
@@ -223,8 +223,8 @@ namespace Jellyfin.MythTv.Protocol
 
         public virtual async Task<bool> Announce75()
         {
-            var result = await SendCommandAsync($"ANN {AnnounceMode} jellyfin {(int)EventMode}");
-            return result[0] == "OK";
+            var status = (await SendCommandAsync($"ANN {AnnounceMode} jellyfin {(int)EventMode}").ConfigureAwait(false))[0];
+            return status == "OK";
         }
 
         protected Program RcvProgramInfo86(List<string> fields)

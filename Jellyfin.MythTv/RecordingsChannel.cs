@@ -46,6 +46,14 @@ namespace Jellyfin.MythTv
             }
         }
 
+        public string HomePageUrl
+        {
+            get
+            {
+                return null;
+            }
+        }
+
         public string[] Attributes
         {
             get
@@ -60,11 +68,6 @@ namespace Jellyfin.MythTv
             {
                 return "1";
             }
-        }
-
-        public string HomePageUrl
-        {
-            get { return "https://www.mythtv.org/"; }
         }
 
         public ChannelParentalRating ParentalRating
@@ -199,12 +202,12 @@ namespace Jellyfin.MythTv
         public async Task<ChannelItemResult> GetChannelItems(InternalChannelItemQuery query, Func<RecordingInfo, bool> filter, CancellationToken cancellationToken)
         {
             var service = GetService();
-            var allRecordings = await service.GetRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            var allRecordings = await service.GetRecordingsAsync(query, cancellationToken).ConfigureAwait(false);
 
             var result = new ChannelItemResult()
-                {
-                    Items = new List<ChannelItemInfo>()
-                };
+            {
+                Items = new List<ChannelItemInfo>()
+            };
 
             result.Items.AddRange(allRecordings.Where(filter).Select(ConvertToChannelItem));
 
@@ -260,7 +263,7 @@ namespace Jellyfin.MythTv
         {
             var service = GetService();
 
-            var allRecordings = await service.GetRecordingsAsync(cancellationToken).ConfigureAwait(false);
+            var allRecordings = await service.GetRecordingsAsync(query, cancellationToken).ConfigureAwait(false);
             var result = new ChannelItemResult
             {
                 Items = new List<ChannelItemInfo>()

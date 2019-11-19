@@ -28,7 +28,7 @@ namespace Jellyfin.MythTv.Protocol
                 events = new ProtoEvent(Server, Port, EventModeType.ExcludeSystem, Logger);
                 events.Event += EventHandler;
                 
-                await events.StartAsync();
+                await events.StartAsync().ConfigureAwait(false);
             }
         }
 
@@ -36,7 +36,7 @@ namespace Jellyfin.MythTv.Protocol
             if (events != null) {
                 events.Event -= EventHandler;
 
-                await events.StopAsync();
+                await events.StopAsync().ConfigureAwait(false);
                 
                 events = null;
             }
@@ -60,12 +60,12 @@ namespace Jellyfin.MythTv.Protocol
         public async Task<int> SpawnLiveTV(string chanNum)
         {
             if (!IsOpen) {
-                await OpenAsync();
+                await OpenAsync().ConfigureAwait(false);
             }
 
-            await StartEventListenerAsync();
+            await StartEventListenerAsync().ConfigureAwait(false);
 
-            var chain = new Chain(await GetFreeInputAsync());
+            var chain = new Chain(await GetFreeInputAsync().ConfigureAwait(false));
 
             if (chain.Input == null) {
                 return 0;
@@ -73,14 +73,14 @@ namespace Jellyfin.MythTv.Protocol
 
             var recorder = new ProtoRecorder(chain.Input.CardId, Server, Port, Logger);
 
-            if (await recorder.SpawnLiveTVAsync(chain, chanNum))
+            if (await recorder.SpawnLiveTVAsync(chain, chanNum).ConfigureAwait(false))
             {
                 recorders.Add(++nextRecorderId, recorder);
                 
                 return nextRecorderId;
             }
 
-            await recorder.StopLiveTVAsync();
+            await recorder.StopLiveTVAsync().ConfigureAwait(false);
             return 0;
         }
 
@@ -94,9 +94,9 @@ namespace Jellyfin.MythTv.Protocol
             StorageGroupFile file = null;
             do
             {
-                var program = await recorder.GetCurrentRecordingAsync();
-                file = await recorder.QuerySGFileAsync(program.HostName, program.Recording.StorageGroup, program.FileName);
-                await Task.Delay(500);
+                var program = await recorder.GetCurrentRecordingAsync().ConfigureAwait(false);
+                file = await recorder.QuerySGFileAsync(program.HostName, program.Recording.StorageGroup, program.FileName).ConfigureAwait(false);
+                await Task.Delay(500).ConfigureAwait(false);
             }
             while (file.Size == 0);
 
@@ -109,12 +109,12 @@ namespace Jellyfin.MythTv.Protocol
             var recorder = recorders.ContainsKey(id) ? recorders[id] : null;
             if (recorder != null && recorder.IsPlaying)
             {
-                await recorder.StopLiveTVAsync();
+                await recorder.StopLiveTVAsync().ConfigureAwait(false);
                 recorders.Remove(id);
             }
 
             if (recorders.Count == 0) {
-                await StopEventListenerAsync();
+                await StopEventListenerAsync().ConfigureAwait(false);
             }
         }
 

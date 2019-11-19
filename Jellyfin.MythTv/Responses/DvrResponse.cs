@@ -223,13 +223,8 @@ namespace Jellyfin.MythTv.Responses
 
         public IEnumerable<RecordingInfo> GetRecordings(Stream stream, IJsonSerializer json, ILogger logger, IFileSystem fileSystem)
         {
-
-            var included = Plugin.Instance.Configuration.RecGroups.Where(x => x.Enabled == true).Select(x => x.Name).ToList();
             var recordings = json.DeserializeFromStream<RecordingList>(stream);
-            return recordings.ProgramList.Programs
-                .Where(i => included.Contains(i.Recording.RecGroup))
-                .Where(i => i.FileSize > 0)
-                .Select(i => ProgramToRecordingInfo(i, fileSystem));
+            return recordings.ProgramList.Programs.Select(i => ProgramToRecordingInfo(i, fileSystem));
 
         }
 

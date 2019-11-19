@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 
-namespace Jellyfin.MythTv.Protocol {
-	enum BackendMessage {
+namespace Jellyfin.MythTv.Model {
+	enum BackendMessage
+	{
 		CLEAR_SETTINGS_CACHE,
 		COMMFLAG_REQUEST,
 		DONE_RECORDING,

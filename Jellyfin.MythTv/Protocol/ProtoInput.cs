@@ -13,22 +13,22 @@ namespace Jellyfin.MythTv.Protocol
 
          public async Task<Input> GetFreeInputAsync()
         {
-            var inputs = await GetFreeInputsAsync();
+            var inputs = await GetFreeInputsAsync().ConfigureAwait(false);
 
             return inputs.Count > 0 ? inputs[0] : null;
         }
 
         public async Task<List<Input>> GetFreeInputsAsync()
         {
-            if (ProtoVersion >= 91) return await GetFreeInputs91Async();
-            if (ProtoVersion >= 90) return await GetFreeInputs90Async();
-            if (ProtoVersion >= 89) return await GetFreeInputs89Async();
-            return await GetFreeInputs87Async();
+            if (ProtoVersion >= 91) return await GetFreeInputs91Async().ConfigureAwait(false);
+            if (ProtoVersion >= 90) return await GetFreeInputs90Async().ConfigureAwait(false);
+            if (ProtoVersion >= 89) return await GetFreeInputs89Async().ConfigureAwait(false);
+            return await GetFreeInputs87Async().ConfigureAwait(false);;
         }
 
         private async Task<List<Input>> GetFreeInputs87Async()
         {
-            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0").ConfigureAwait(false);
             var output = new List<Input>();
 
             if (input.Count == 0)
@@ -58,7 +58,7 @@ namespace Jellyfin.MythTv.Protocol
 
         private async Task<List<Input>> GetFreeInputs89Async()
         {
-            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0").ConfigureAwait(false);
             var output = new List<Input>();
 
             if (input.Count == 0)
@@ -88,7 +88,7 @@ namespace Jellyfin.MythTv.Protocol
 
         private async Task<List<Input>> GetFreeInputs90Async()
         {
-            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0").ConfigureAwait(false);
             var output = new List<Input>();
 
             if (input.Count == 0)
@@ -118,7 +118,7 @@ namespace Jellyfin.MythTv.Protocol
 
         private async Task<List<Input>> GetFreeInputs91Async()
         {
-            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0");
+            var input = await SendCommandAsync("GET_FREE_INPUT_INFO 0").ConfigureAwait(false);
             var output = new List<Input>();
 
             if (input.Count == 0)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Diagnostics.CodeAnalysis;
+using Jellyfin.MythTv.Model;
 using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.MythTv.Protocol {
@@ -49,10 +50,10 @@ namespace Jellyfin.MythTv.Protocol {
 		public async Task StartAsync()
         {
             if (!IsOpen) {
-                await OpenAsync();
+                await OpenAsync().ConfigureAwait(false);
             }
             
-			_ = ListenAndHandleAsync();
+			_ = ListenAndHandleAsync().ConfigureAwait(false);
 		}
 
         protected async Task ListenAndHandleAsync() {
@@ -65,7 +66,7 @@ namespace Jellyfin.MythTv.Protocol {
                 try {
                     var eventHandler = Event;
                     if (eventHandler != null) {
-                        Broadcast(await ListenAsync());
+                        Broadcast(await ListenAsync().ConfigureAwait(false));
                     }
                 } catch(ProtoEventFormatException ex) {
                     // If invalid proto event, just log and continue
@@ -81,7 +82,7 @@ namespace Jellyfin.MythTv.Protocol {
             IsListening = false;
 
             if (IsOpen) {
-                await CloseAsync();
+                await CloseAsync().ConfigureAwait(false);
             }
 		}
 	}
